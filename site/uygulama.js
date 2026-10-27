@@ -4,6 +4,9 @@
   "use strict";
 
   const SAYFA_BOYU = 40;
+  // Push bildirimleri için VAPID genel anahtarı. GitHub'daki VAPID_PRIVATE_KEY secret'ı ile çift oluşturur;
+  // biri değişirse diğeri de değişmeli ve tüm abonelik kodları yeniden oluşturulmalıdır.
+  const VAPID_GENEL_ANAHTAR = "BCzFGU7yE65o4txnpMLDE4nSrotPFt4w4VgXq7pl0Kv0JZqxzZ8cdVBH2n7NHCAGREbIKLgS0d134LT92fMLIW4";
   const KONTROL_ARALIGI = 5 * 60 * 1000;
   const ESKI_VERI_SAATI = 2;
 
@@ -13,6 +16,8 @@
     gunes: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
     ay: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
     sistem: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>',
+    zil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
+    zilAcik: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" fill="currentColor"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><circle cx="18.5" cy="5.5" r="3.5" fill="#d61f3a" stroke="none"/></svg>',
     kapat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     tik: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
     geri: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>',
@@ -97,6 +102,9 @@
     filtre: null,
     derli: null,
     okunan: new Set(depo.oku("okunan", [])),
+    bildirim: Object.assign({ mod: "kapali", onemli: true, kategoriler: [], kaynaklar: [] }, depo.oku("bildirim", {})),
+    pushAbonelik: null,
+    pushAd: depo.oku("pushAd", ""),
     kayitli: new Map(depo.oku("kayitli", [])),
     oncekiZiyaret: depo.oku("sonZiyaret", null),
     gorunum: Object.assign({ sekme: "onemli", kaynak: "", kategori: "", sira: "yeni", okunanGizle: true }, depo.oku("gorunum", {})),
@@ -484,6 +492,7 @@
       }
       const veri = await veriGetir();
       if (!D.veri || veri.guncelleme !== D.veri.guncelleme) {
+        yeniHaberleriBildir(veri);
         const eskiIdler = new Set(D.veri ? D.veri.haberler.map((h) => h.id) : []);
         const yeniSayi = veri.haberler.filter((h) => !eskiIdler.has(h.id)).length;
         if (elle || !D.veri) {
@@ -684,6 +693,7 @@
     $("#haricKelimeler").value = D.filtre.haric.join(", ");
     kaynakListesiCiz();
     yeniKaynakJsonCiz();
+    bildirimAyarlariCiz();
     $("#ayarlar").showModal();
   }
 
@@ -695,6 +705,7 @@
     }
     if (D.gorunum.kategori && !D.derli.kategoriler.some((kat) => kat.id === D.gorunum.kategori)) D.gorunum.kategori = "";
     ayarBilgileriniCiz();
+    if ($("#ayarlar").open) pushAlaniCiz();
     D.gosterilen = SAYFA_BOYU;
     listeyiCiz();
   }
@@ -739,6 +750,276 @@
     } catch (hata) {
       tost("Dosya okunamadı: NewsESF yedeği olduğundan emin olun");
     }
+  }
+
+  // ---------------------------------------------------------------- bildirimler
+  //
+  // İki yol var:
+  //  1. Site açıkken (arka planda bile) yeni veri gelince tarayıcı kendisi bildirim gösterir.
+  //  2. Push aboneliği varsa, site kapalıyken GitHub Actions (toplayici/bildir.py) gönderir.
+  //     Sunucu filtreleri bilmediği için abonelik kodu filtreleri de taşır ve repo'daki
+  //     aboneler.txt dosyasına eklenir. Abonelik varken 1. yol devre dışı kalır (çift bildirim olmasın).
+
+  const BILDIRIM_TEK_TEK_SINIRI = 3;
+  const BILDIRIM_EN_ESKI = 6 * 3600 * 1000;
+
+  const bildirimDestegi = () => "Notification" in window && "serviceWorker" in navigator;
+  const pushDestegi = () => bildirimDestegi() && "PushManager" in window;
+  const iosMu = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const uygulamaModu = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
+  function bildirimeUyar(olay) {
+    const kural = D.bildirim;
+    if (olay.p.haric || kural.mod === "kapali") return false;
+    if (kural.mod === "tum") return true;
+    const onemli = olay.p.puan >= D.derli.esik;
+    if (kural.mod === "onemli") return onemli;
+    return (kural.onemli && onemli)
+      || olay.p.etiketler.some((e) => kural.kategoriler.includes(e.kat.id))
+      || [...olay.kaynaklar].some((id) => kural.kaynaklar.includes(id));
+  }
+
+  // toplayici/bildir.py içindeki bildirim_yukleri() ile aynı biçim.
+  function bildirimYukleri(olaylar) {
+    if (olaylar.length > BILDIRIM_TEK_TEK_SINIRI) {
+      return [{
+        baslik: `NewsESF: ${olaylar.length} yeni haber`,
+        govde: olaylar.slice(0, 3).map((o) => `• ${o.ana.baslik}`).join("\n"),
+        url: location.href.split(/[?#]/)[0],
+        etiket: "newsesf-ozet",
+      }];
+    }
+    return olaylar.map((o) => {
+      const alt = [kaynakAdi(o.ana.kaynak)];
+      if (o.p.etiketler[0]) alt.push(o.p.etiketler[0].kat.ad);
+      if (o.kaynaklar.size > 1) alt.push(`${o.kaynaklar.size} kaynakta`);
+      return { baslik: o.ana.baslik, govde: alt.join(" · "), url: o.ana.link, etiket: o.id, gorsel: o.gorsel };
+    });
+  }
+
+  async function bildirimGoster(yuk) {
+    const secenekler = { body: yuk.govde, icon: "simge-192.png", badge: "simge-192.png", tag: yuk.etiket, data: { url: yuk.url } };
+    if (yuk.gorsel) secenekler.image = yuk.gorsel;
+    const kayit = await navigator.serviceWorker.getRegistration().catch(() => null);
+    if (kayit) return kayit.showNotification(yuk.baslik, secenekler);
+    const bildirim = new Notification(yuk.baslik, secenekler);
+    bildirim.onclick = () => { window.open(yuk.url, "_blank", "noopener"); bildirim.close(); };
+  }
+
+  let bildirimSiniri = 0;
+
+  // Yeni gelen veride ilk kez görülen olaylardan kurala uyanlar için bildirim göster.
+  function yeniHaberleriBildir(yeniVeri) {
+    if (!D.veri) return;
+    // Liste henüz yenilenmemişken (bekleyen veri) ikinci bir güncelleme gelirse aynı haberler tekrar bildirilmesin.
+    const oncekiGuncelleme = Math.max(Date.parse(D.veri.guncelleme), bildirimSiniri);
+    bildirimSiniri = Math.max(bildirimSiniri, Date.parse(yeniVeri.guncelleme));
+    if (D.pushAbonelik || D.bildirim.mod === "kapali") return;
+    if (!bildirimDestegi() || Notification.permission !== "granted") return;
+    const kapali = new Set(D.filtre.kapaliKaynaklar);
+    const gruplar = new Map();
+    for (const h of yeniVeri.haberler) {
+      if (kapali.has(h.kaynak)) continue;
+      if (!gruplar.has(h.grup)) gruplar.set(h.grup, []);
+      gruplar.get(h.grup).push(h);
+    }
+    const sinir = Date.now() - BILDIRIM_EN_ESKI;
+    const eslesenler = [];
+    for (const [id, haberler] of gruplar) {
+      const olay = olayYap(id, haberler);
+      if (olay.ilk <= oncekiGuncelleme || olay.tarih < sinir || okunduMu(olay)) continue;
+      olay.p = puanla(olay);
+      if (bildirimeUyar(olay)) eslesenler.push(olay);
+    }
+    eslesenler.sort((a, b) => b.p.puan - a.p.puan);
+    for (const yuk of bildirimYukleri(eslesenler)) bildirimGoster(yuk).catch(() => {});
+  }
+
+  function base64UrlDiziye(metin) {
+    const ham = atob((metin + "=".repeat((4 - (metin.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(ham, (c) => c.charCodeAt(0));
+  }
+
+  function bildirimKurali() {
+    const { mod, onemli, kategoriler, kaynaklar } = D.bildirim;
+    return { mod, onemli, kategoriler, kaynaklar };
+  }
+
+  // Sunucunun puanlama için ihtiyaç duyduğu filtreler (yalnızca açık kategoriler).
+  function sunucuFiltresi() {
+    const f = D.filtre;
+    return {
+      esik: f.esik,
+      haric: f.haric,
+      kapaliKaynaklar: f.kapaliKaynaklar,
+      kategoriler: f.kategoriler.filter((kat) => kat.aktif !== false)
+        .map(({ id, ad, agirlik, kelimeler }) => ({ id, ad, agirlik, kelimeler })),
+    };
+  }
+
+  const abonelikOzeti = () => JSON.stringify([D.pushAbonelik && D.pushAbonelik.endpoint, bildirimKurali(), sunucuFiltresi(), D.pushAd]);
+
+  function abonelikKodu() {
+    return JSON.stringify({
+      ad: D.pushAd || "Adsız cihaz",
+      tarih: new Date().toISOString().slice(0, 10),
+      abonelik: D.pushAbonelik.toJSON(),
+      kural: bildirimKurali(),
+      filtre: sunucuFiltresi(),
+    });
+  }
+
+  function bildirimKaydet() {
+    depo.yaz("bildirim", D.bildirim);
+    pushAlaniCiz();
+    zilCiz();
+  }
+
+  function zilCiz() {
+    const acik = D.bildirim.mod !== "kapali";
+    const dugme = $("#zilDugme");
+    dugme.innerHTML = acik ? IKON.zilAcik : IKON.zil;
+    dugme.title = acik ? "Bildirimler açık" : "Bildirimler";
+  }
+
+  function bildirimAyarlariCiz() {
+    const kural = D.bildirim;
+    for (const radyo of document.querySelectorAll('input[name="bildirimModu"]')) radyo.checked = radyo.value === kural.mod;
+    $("#bildirimSecili").hidden = kural.mod !== "secili";
+    $("#bildirimOnemli").checked = !!kural.onemli;
+    $("#bildirimKategoriler").innerHTML = D.filtre.kategoriler.filter((kat) => kat.aktif !== false).map((kat) =>
+      `<label class="kutucuk" style="--renk:${k(kat.renk)}"><input type="checkbox" data-bildirim-kategori="${k(kat.id)}"${kural.kategoriler.includes(kat.id) ? " checked" : ""}><span class="nokta"></span>${k(kat.ad)}</label>`).join("");
+    const kaynaklar = D.veri ? Object.keys(D.veri.kaynaklar) : [];
+    $("#bildirimKaynaklar").innerHTML = kaynaklar.length
+      ? kaynaklar.map((id) =>
+        `<label class="kutucuk"><input type="checkbox" data-bildirim-kaynak="${k(id)}"${kural.kaynaklar.includes(id) ? " checked" : ""}>${favicon(id)}${k(kaynakAdi(id))}</label>`).join("")
+      : '<span class="aciklama">Veri yüklenince kaynaklar burada listelenir.</span>';
+    izinAlaniCiz();
+    pushAlaniCiz();
+  }
+
+  function izinAlaniCiz() {
+    const kutu = $("#bildirimIzin");
+    if (!bildirimDestegi()) {
+      kutu.innerHTML = iosMu() && !uygulamaModu()
+        ? '<p class="durum kapali">iPhone\'da bildirim için siteyi önce ana ekrana eklemelisiniz (aşağıya bakın).</p>'
+        : '<p class="durum kapali">Bu tarayıcı bildirimleri desteklemiyor.</p>';
+      return;
+    }
+    const izin = Notification.permission;
+    if (izin === "granted") {
+      kutu.innerHTML = `<p class="durum acik">Bu cihazda bildirim izni verildi</p>
+        <p>${D.pushAbonelik ? "Push aboneliği açık olduğu için bildirimler sunucudan gelir." : "Site açıkken (sekme arka planda olsa bile) yeni haberler için bildirim gelir."}</p>
+        <div class="dugme-satiri"><button class="metin-dugme" type="button" data-bildirim-eylem="dene">Deneme bildirimi gönder</button></div>`;
+    } else if (izin === "denied") {
+      kutu.innerHTML = '<p class="durum kapali">Bildirim izni reddedilmiş</p><p>İzni tarayıcının site ayarlarından (adres çubuğundaki kilit simgesi) yeniden açabilirsiniz.</p>';
+    } else {
+      kutu.innerHTML = `<p class="durum">Bildirim izni henüz verilmedi</p>
+        <div class="dugme-satiri"><button class="metin-dugme birincil" type="button" data-bildirim-eylem="izin">Bildirimlere izin ver</button></div>`;
+    }
+  }
+
+  function pushAlaniCiz() {
+    const kutu = $("#pushAlani");
+    if (iosMu() && !uygulamaModu()) {
+      kutu.innerHTML = `<p>iPhone'da site kapalıyken bildirim alabilmek için NewsESF'i uygulama gibi kurmanız gerekir (iOS 16.4 ve sonrası):</p>
+        <ol>
+          <li>Bu sayfayı <b>Safari</b>'de açın.</li>
+          <li>Alttaki <b>Paylaş</b> <span class="paylas-simge">⬆</span> düğmesine, ardından <b>Ana Ekrana Ekle</b>'ye dokunun.</li>
+          <li>Ana ekrandaki <b>NewsESF</b> simgesinden açıp bu bölüme geri gelin.</li>
+        </ol>`;
+      return;
+    }
+    if (!pushDestegi()) {
+      kutu.innerHTML = "<p>Bu tarayıcı push bildirimlerini desteklemiyor. Chrome, Edge, Firefox ya da iPhone'da ana ekrana eklenmiş Safari kullanın.</p>";
+      return;
+    }
+    if (D.bildirim.mod === "kapali") {
+      kutu.innerHTML = "<p>Önce yukarıdan bildirim türünü seçin.</p>";
+      return;
+    }
+    if (!D.pushAbonelik) {
+      kutu.innerHTML = `<p>Site kapalıyken de bildirim almak için bu cihaz için bir abonelik kodu oluşturun. Kod, bildirim ayarlarınızı ve filtrelerinizi içerir; GitHub'daki <code>aboneler.txt</code> dosyasına eklendiğinde en geç 30 dakika içinde bildirimler başlar.</p>
+        <div class="form-izgara"><label>Bu cihazın adı <input type="text" id="pushAd" placeholder="Örn. Ahmet'in iPhone'u" value="${k(D.pushAd)}"></label></div>
+        <div class="dugme-satiri"><button class="metin-dugme birincil" type="button" data-bildirim-eylem="abone">Abonelik kodu oluştur</button></div>`;
+      return;
+    }
+    const kod = abonelikKodu();
+    const guncel = depo.oku("pushGonderilen", "") === abonelikOzeti();
+    const repo = depoAdresi();
+    kutu.innerHTML = `<p class="durum acik">Bu cihaz push bildirimlerine abone</p>
+      ${guncel ? "" : `<p class="uyari"><b>Yeni kodu aboneler.txt'ye eklemeniz gerekiyor.</b> Bildirim ayarlarınız ya da filtreleriniz kodu son kopyaladığınızdan beri değişti; sunucu hâlâ eski ayarlarla gönderiyor.</p>`}
+      <ol>
+        <li>Kodu kopyalayın ya da paylaşın (ör. WhatsApp ile repo sahibine gönderin).</li>
+        <li>GitHub'da <code>aboneler.txt</code> dosyasının sonuna <b>yeni bir satır</b> olarak yapıştırıp kaydedin.</li>
+        <li>Aynı cihazın eski satırını silmeniz gerekmez; yenisi geçerli olur.</li>
+      </ol>
+      <details><summary>Kodu göster</summary><pre class="kod">${k(kod)}</pre></details>
+      <div class="dugme-satiri">
+        <button class="metin-dugme birincil" type="button" data-bildirim-eylem="kopyala">Kodu kopyala</button>
+        ${navigator.share ? '<button class="metin-dugme" type="button" data-bildirim-eylem="paylas">Paylaş</button>' : ""}
+        ${repo ? `<a class="metin-dugme" href="${k(repo)}/edit/main/aboneler.txt" target="_blank" rel="noopener noreferrer">GitHub'da aboneler.txt'yi aç</a>` : ""}
+        <button class="metin-dugme tehlike" type="button" data-bildirim-eylem="birak">Aboneliği kaldır</button>
+      </div>`;
+  }
+
+  async function bildirimIzniIste() {
+    const izin = await Notification.requestPermission();
+    if (izin !== "granted") tost("Bildirim izni verilmedi");
+    else if (D.bildirim.mod === "kapali") { D.bildirim.mod = "onemli"; bildirimKaydet(); }
+    bildirimAyarlariCiz();
+    return izin === "granted";
+  }
+
+  async function bildirimEylemi(eylem) {
+    try {
+      if (eylem === "izin") {
+        await bildirimIzniIste();
+      } else if (eylem === "dene") {
+        const ornek = D.olaylar.find((o) => o.p.puan >= D.derli.esik && o.gorsel) || D.olaylar[0];
+        await bildirimGoster(ornek
+          ? { ...bildirimYukleri([ornek])[0], etiket: "newsesf-deneme" }
+          : { baslik: "NewsESF", govde: "Bildirimler çalışıyor", url: location.href, etiket: "newsesf-deneme" });
+      } else if (eylem === "abone") {
+        D.pushAd = ($("#pushAd") && $("#pushAd").value.trim()) || "";
+        depo.yaz("pushAd", D.pushAd);
+        if (Notification.permission !== "granted" && !(await bildirimIzniIste())) return;
+        const kayit = await navigator.serviceWorker.ready;
+        D.pushAbonelik = await kayit.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlDiziye(VAPID_GENEL_ANAHTAR) });
+        bildirimAyarlariCiz();
+        tost("Abonelik oluşturuldu; şimdi kodu aboneler.txt'ye ekleyin");
+      } else if (eylem === "kopyala") {
+        await navigator.clipboard.writeText(abonelikKodu());
+        depo.yaz("pushGonderilen", abonelikOzeti());
+        pushAlaniCiz();
+        tost("Kod kopyalandı");
+      } else if (eylem === "paylas") {
+        await navigator.share({ title: "NewsESF abonelik kodu", text: abonelikKodu() });
+        depo.yaz("pushGonderilen", abonelikOzeti());
+        pushAlaniCiz();
+      } else if (eylem === "birak") {
+        if (!confirm("Bu cihazın push aboneliği kaldırılsın mı? aboneler.txt'deki satırını da silmeyi unutmayın.")) return;
+        await D.pushAbonelik.unsubscribe();
+        D.pushAbonelik = null;
+        depo.yaz("pushGonderilen", "");
+        bildirimAyarlariCiz();
+        tost("Abonelik kaldırıldı");
+      }
+    } catch (hata) {
+      if (hata && hata.name === "AbortError") return; // paylaşım penceresi kapatıldı
+      tost(`İşlem tamamlanamadı: ${hata && hata.message ? hata.message : hata}`);
+    }
+  }
+
+  async function servisCalisaniKur() {
+    if (!("serviceWorker" in navigator)) return;
+    try {
+      const kayit = await navigator.serviceWorker.register("sw.js");
+      if ("PushManager" in window) D.pushAbonelik = await kayit.pushManager.getSubscription();
+    } catch (hata) {
+      // file:// ya da desteklenmeyen ortam; bildirimler olmadan devam et.
+    }
+    if ($("#ayarlar").open) bildirimAyarlariCiz();
   }
 
   // ---------------------------------------------------------------- olaylar
@@ -818,6 +1099,36 @@
     // Ayarlar penceresi
     const pencere = $("#ayarlar");
     $("#ayarDugme").addEventListener("click", ayarlariAc);
+    $("#zilDugme").addEventListener("click", () => {
+      ayarlariAc();
+      $("#bildirimBolumu").scrollIntoView({ block: "start" });
+    });
+    const bildirimBolumu = $("#bildirimBolumu");
+    bildirimBolumu.addEventListener("change", (e) => {
+      const hedef = e.target;
+      if (hedef.name === "bildirimModu") {
+        D.bildirim.mod = hedef.value;
+        $("#bildirimSecili").hidden = hedef.value !== "secili";
+        if (hedef.value !== "kapali" && bildirimDestegi() && Notification.permission === "default") bildirimIzniIste();
+      } else if (hedef.id === "bildirimOnemli") {
+        D.bildirim.onemli = hedef.checked;
+      } else if (hedef.dataset.bildirimKategori || hedef.dataset.bildirimKaynak) {
+        const [alan, id] = hedef.dataset.bildirimKategori ? ["kategoriler", hedef.dataset.bildirimKategori] : ["kaynaklar", hedef.dataset.bildirimKaynak];
+        const kume = new Set(D.bildirim[alan]);
+        hedef.checked ? kume.add(id) : kume.delete(id);
+        D.bildirim[alan] = [...kume];
+      } else if (hedef.id === "pushAd") {
+        D.pushAd = hedef.value.trim();
+        depo.yaz("pushAd", D.pushAd);
+      } else {
+        return;
+      }
+      bildirimKaydet();
+    });
+    bildirimBolumu.addEventListener("click", (e) => {
+      const dugme = e.target.closest("[data-bildirim-eylem]");
+      if (dugme) bildirimEylemi(dugme.dataset.bildirimEylem);
+    });
     $("#ayarKapat").addEventListener("click", () => pencere.close());
     pencere.addEventListener("click", (e) => { if (e.target === pencere) pencere.close(); });
 
@@ -900,6 +1211,8 @@
 
   filtreYukle();
   baglantilariKur();
+  zilCiz();
+  servisCalisaniKur();
   guncellemeCiz();
   sayilariCiz();
   ilkYukleme();

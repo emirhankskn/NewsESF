@@ -1,0 +1,7 @@
+# NewsESF bildirim aboneleri
+#
+# Her satır bir cihazın abonelik kodudur. Kodu sitede Ayarlar -> Bildirimler bölümünden alıp
+# bu dosyanın sonuna YENİ BİR SATIR olarak yapıştırın.
+# Aynı cihazdan yeni bir kod eklerseniz eskisinin yerine geçer; eski satırı silmeniz gerekmez.
+# Bir cihaza bildirim gitmesini durdurmak için o cihazın satırlarını silin.
+# '#' ile başlayan satırlar dikkate alınmaz.

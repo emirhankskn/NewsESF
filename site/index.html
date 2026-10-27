@@ -7,7 +7,11 @@
   <meta name="description" content="Siyaset bilimi ve kamu yönetimi için filtrelenmiş güncel haberler.">
   <meta name="theme-color" content="#0b1f3a">
   <link rel="icon" href="simge.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="simge.svg">
+  <link rel="apple-touch-icon" href="simge-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="NewsESF">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -38,6 +42,7 @@
       <div class="serit-dugmeler">
         <span class="guncelleme" id="guncelleme" aria-live="polite"></span>
         <button class="ikon-dugme" id="yenileDugme" type="button" title="Yenile" aria-label="Haberleri yenile"></button>
+        <button class="ikon-dugme" id="zilDugme" type="button" title="Bildirimler" aria-label="Bildirim ayarları"></button>
         <button class="ikon-dugme" id="temaDugme" type="button" title="Tema" aria-label="Temayı değiştir"></button>
         <button class="ikon-dugme" id="ayarDugme" type="button" title="Ayarlar ve filtreler" aria-label="Ayarlar ve filtreler"></button>
       </div>
@@ -97,6 +102,28 @@
       <button class="ikon-dugme" id="ayarKapat" type="button" aria-label="Kapat"></button>
     </div>
     <div class="ayar-govde">
+      <section id="bildirimBolumu">
+        <h3>Bildirimler</h3>
+        <p class="aciklama">Seçtiğiniz türde yeni bir haber geldiğinde bildirim alırsınız. Aynı olay için ikinci bildirim gelmez; hariç tutulan kelimeler ve kapattığınız kaynaklar burada da geçerlidir.</p>
+        <div class="secim-grubu" role="radiogroup" aria-label="Bildirim türü">
+          <label class="secim"><input type="radio" name="bildirimModu" value="kapali"><span><b>Kapalı</b><small>Bildirim gönderilmez</small></span></label>
+          <label class="secim"><input type="radio" name="bildirimModu" value="onemli"><span><b>Önemli haberler</b><small>Önem eşiğini geçen yeni haberler</small></span></label>
+          <label class="secim"><input type="radio" name="bildirimModu" value="secili"><span><b>Seçtiklerim</b><small>Belirli kategoriler ve kaynaklar</small></span></label>
+          <label class="secim"><input type="radio" name="bildirimModu" value="tum"><span><b>Tüm yeni haberler</b><small>Hariç tutulanlar dışında hepsi</small></span></label>
+        </div>
+        <div class="bildirim-secili" id="bildirimSecili" hidden>
+          <p class="aciklama">Aşağıdakilerden <b>herhangi birine</b> uyan yeni haber için bildirim gelir.</p>
+          <label class="anahtar"><input type="checkbox" id="bildirimOnemli"> Önemli haberler (kategorisi ne olursa olsun)</label>
+          <p class="alt-baslik">Kategoriler</p>
+          <div class="kutucuklar" id="bildirimKategoriler"></div>
+          <p class="alt-baslik">Kaynaklar</p>
+          <div class="kutucuklar" id="bildirimKaynaklar"></div>
+        </div>
+        <div class="bildirim-kutu" id="bildirimIzin"></div>
+        <h4>Site kapalıyken de bildirim al</h4>
+        <div class="bildirim-kutu" id="pushAlani"></div>
+      </section>
+
       <section>
         <h3>Filtre kategorileri</h3>
         <p class="aciklama">

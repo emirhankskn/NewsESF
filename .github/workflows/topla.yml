@@ -54,6 +54,14 @@ jobs:
         id: yayin
         uses: actions/deploy-pages@v4
 
+      # aboneler.txt'deki cihazlara, bu çalışmada gelen yeni haberler için push bildirimi gönderir.
+      - name: Bildirimleri gönder
+        continue-on-error: true
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SITE_ADRESI: ${{ steps.pages.outputs.base_url }}
+        run: python toplayici/bildir.py
+
       # GitHub, 60 gün commit almayan public repolarda zamanlanmış işleri durdurur.
       # Son commit 45 günden eskiyse küçük bir commit atarak zamanlayıcıyı canlı tutar.
       - name: Zamanlayıcıyı canlı tut

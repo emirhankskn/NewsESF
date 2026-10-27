@@ -93,6 +93,48 @@ Sağ üstteki **Ayarlar** düğmesinden:
 
 Büyük/küçük harf ve Türkçe karakter farkı önemsizdir (`Resmî Gazete` = `resmi gazete`).
 
+### Bildirimler
+
+Üst şeritteki **zil** düğmesinden (ya da **Ayarlar → Bildirimler**) hangi haberler için bildirim almak istediğinizi seçin:
+
+| Seçenek | Bildirim gelir |
+|---|---|
+| Önemli haberler | Önem eşiğini geçen yeni haberler |
+| Seçtiklerim | İşaretlediğiniz kategorilerden ya da kaynaklardan **herhangi birine** uyan (isterseniz önemli olanlar da) |
+| Tüm yeni haberler | Hariç tutulanlar dışındaki her yeni haber |
+
+Aynı olay için ikinci bildirim gelmez. Bir seferde 3'ten fazla haber varsa tek bir özet bildirim gelir.
+
+**Site açıkken:** “Bildirimlere izin ver” demeniz yeterli. Sekme arka planda olsa bile yeni haberler için
+bildirim çıkar.
+
+**Site kapalıyken (telefon dahil):** Bildirimleri GitHub Actions 30 dakikada bir gönderir. Sunucu filtrelerinizi
+bilmediği için her cihazın bir **abonelik kodu** repo'daki `aboneler.txt` dosyasına eklenir.
+
+Bir kerelik kurulum (repo sahibi yapar):
+
+1. Bilgisayardaki `.gizli/vapid-ozel-anahtar.txt` dosyasının içeriğini kopyalayın. Bu dosya git'e gönderilmez;
+   güvenli bir yere yedekleyin.
+2. GitHub'da **Settings → Secrets and variables → Actions → New repository secret**:
+   Name `VAPID_PRIVATE_KEY`, Secret olarak kopyaladığınız metin.
+
+Her cihaz için:
+
+1. **iPhone:** Siteyi Safari'de açın → **Paylaş → Ana Ekrana Ekle**, ardından siteyi ana ekrandaki NewsESF
+   simgesinden açın (iOS 16.4+). Android ve bilgisayarda bu adım gerekmez.
+2. Zil düğmesi → bildirim türünü seçin → izin verin → cihaza bir ad yazıp **Abonelik kodu oluştur**.
+3. **Kodu kopyala** ya da **Paylaş** (ör. WhatsApp ile repo sahibine gönderin).
+4. GitHub'da `aboneler.txt` dosyasının sonuna **yeni bir satır** olarak yapıştırıp kaydedin. En geç 30 dakika
+   içinde bildirimler başlar.
+
+Bildirim ayarlarını ya da filtreleri sonradan değiştirirseniz site “Yeni kodu aboneler.txt'ye eklemeniz
+gerekiyor” uyarısı gösterir; yeni kodu yine yeni satır olarak ekleyin, aynı cihazın eski satırının yerine geçer.
+Bir cihaza bildirim gitmesini durdurmak için o cihazın satırlarını silin.
+
+> Abonelik kodu filtrelerinizi ve cihazın push adresini içerir; repo public olduğu için görülebilir. Push adresi
+> tek başına bildirim göndermeye yaramaz, gönderim için sizdeki özel anahtar gerekir. Actions çıktısında
+> “abonelik artık geçerli değil” yazarsa o cihazın satırını silin.
+
 ### Başka bir cihaza taşıma
 
 Ayarlar her tarayıcıda ayrı saklanır. **Ayarlar → Yedekleme → Dışa aktar** ile bir dosya indirip diğer cihazda
@@ -161,7 +203,10 @@ Toplayıcıyı tekrar çalıştırdığınızda yerel `haberler.json` önceki ve
 
 ```
 kaynaklar.json                    Haber kaynakları
+aboneler.txt                      Push bildirimi alacak cihazların abonelik kodları
 toplayici/topla.py                Haberleri toplayan, gruplayan Python betiği
+toplayici/bildir.py               Yeni haberler için abonelere push bildirimi gönderen betik
+site/sw.js                        Site kapalıyken bildirimleri gösteren servis çalışanı
 site/index.html, stil.css         Arayüz
 site/uygulama.js                  Filtreleme, puanlama, okundu takibi, ayarlar
 site/filtreler.js                 Varsayılan filtreler (Siyaset Bilimi ve Kamu Yönetimi)

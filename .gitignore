@@ -5,3 +5,6 @@ __pycache__/
 *.pyc
 .venv/
 .vscode/
+
+# VAPID özel anahtarı burada durur; ASLA commit edilmez.
+.gizli/
