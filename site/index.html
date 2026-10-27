@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>NewsESF</title>
+  <meta name="description" content="Siyaset bilimi ve kamu yönetimi için filtrelenmiş güncel haberler.">
+  <meta name="theme-color" content="#7f1d2d">
+  <link rel="icon" href="simge.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="simge.svg">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap">
+  <link rel="stylesheet" href="stil.css">
+  <script>
+    // Tema, sayfa çizilmeden önce uygulansın ki açılışta renk sıçraması olmasın.
+    try { const t = localStorage.getItem("newsesf.tema"); if (t) document.documentElement.dataset.theme = JSON.parse(t); } catch (e) {}
+  </script>
+</head>
+<body>
+  <header class="ust">
+    <div class="kap ust-ic">
+      <a class="logo" href="./" aria-label="NewsESF ana sayfa">
+        <span class="logo-isaret" aria-hidden="true">§</span>
+        <span>News<b>ESF</b></span>
+      </a>
+      <span class="guncelleme" id="guncelleme" aria-live="polite"></span>
+      <div class="ust-dugmeler">
+        <button class="ikon-dugme" id="yenileDugme" type="button" title="Yenile" aria-label="Haberleri yenile"></button>
+        <button class="ikon-dugme" id="temaDugme" type="button" title="Tema" aria-label="Temayı değiştir"></button>
+        <button class="ikon-dugme" id="ayarDugme" type="button" title="Ayarlar ve filtreler" aria-label="Ayarlar ve filtreler"></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="kap">
+    <nav class="sekmeler" id="sekmeler" role="tablist" aria-label="Haber listeleri">
+      <button role="tab" data-sekme="onemli" type="button">Önemli <span class="sayi"></span></button>
+      <button role="tab" data-sekme="ilgili" type="button">İlgili <span class="sayi"></span></button>
+      <button role="tab" data-sekme="tumu" type="button">Tümü <span class="sayi"></span></button>
+      <button role="tab" data-sekme="kayitli" type="button"><span class="uzun">Kaydedilenler</span><span class="kisa">Kayıtlı</span> <span class="sayi"></span></button>
+    </nav>
+
+    <div class="arac-cubugu">
+      <label class="arama">
+        <span class="gizli">Haberlerde ara</span>
+        <input id="arama" type="search" placeholder="Haberlerde ara…" autocomplete="off">
+      </label>
+      <select id="kaynakSec" aria-label="Kaynak"><option value="">Tüm kaynaklar</option></select>
+      <select id="siraSec" aria-label="Sıralama">
+        <option value="yeni">En yeni</option>
+        <option value="onem">En önemli</option>
+      </select>
+      <label class="anahtar">
+        <input id="okunanGizle" type="checkbox">
+        <span>Okunanları gizle</span>
+      </label>
+      <button class="metin-dugme" id="hepsiOkundu" type="button">Listeyi okundu say</button>
+    </div>
+
+    <div class="cipler" id="kategoriCipleri" aria-label="Kategoriye göre süz"></div>
+
+    <button class="yeni-bildirim" id="yeniBildirim" type="button" hidden></button>
+
+    <section id="liste" class="liste" aria-live="polite">
+      <p class="bos">Haberler yükleniyor…</p>
+    </section>
+    <button class="daha-fazla" id="dahaFazla" type="button" hidden>Daha fazla göster</button>
+  </main>
+
+  <footer class="alt kap">
+    <p>NewsESF haber yayınlamaz; başlıkları ve kısa özetleri kaynaklarından toplar, haberin tamamı için sizi kaynağa yönlendirir.</p>
+  </footer>
+
+  <dialog class="ayarlar" id="ayarlar" aria-labelledby="ayarBaslik">
+    <div class="ayar-ust">
+      <h2 id="ayarBaslik">Ayarlar ve filtreler</h2>
+      <button class="ikon-dugme" id="ayarKapat" type="button" aria-label="Kapat"></button>
+    </div>
+    <div class="ayar-govde">
+      <section>
+        <h3>Filtre kategorileri</h3>
+        <p class="aciklama">
+          Her haber, başlığında ve özetinde geçen kelimelere göre puan alır: başlıkta geçen kelime
+          <b>3</b>, özette geçen <b>1</b> puan; kategori puanı en fazla 6 × ağırlık olur. Aynı haberi
+          birden çok kaynak verdiyse ek puan gelir.
+        </p>
+        <p class="aciklama">
+          Kelimeler kelime başından eşleşir: <code>seçim</code> yazınca “seçimde”, “seçimlerin” de yakalanır.
+          Büyük harfle yazılmış kısa kısaltmalar (<code>AB</code>, <code>BM</code>) ve tırnak içindekiler
+          (<code>"vali"</code>) tam eşleşir.
+        </p>
+        <div id="kategoriDuzenleyici"></div>
+        <button class="metin-dugme" id="kategoriEkle" type="button">+ Kategori ekle</button>
+      </section>
+
+      <section>
+        <h3>Önem eşiği</h3>
+        <p class="aciklama">Puanı bu değere ulaşan haberler <b>Önemli</b> sekmesinde görünür.</p>
+        <div class="esik-satir">
+          <input id="esik" type="range" min="3" max="40" step="1">
+          <output id="esikDeger" for="esik"></output>
+        </div>
+        <p class="aciklama" id="esikBilgi"></p>
+      </section>
+
+      <section>
+        <h3>Hariç tutulan kelimeler</h3>
+        <p class="aciklama">Başlığında bunlardan biri geçen haberler hiçbir sekmede gösterilmez. Virgülle ayırın.</p>
+        <textarea id="haricKelimeler" rows="4" spellcheck="false"></textarea>
+        <p class="aciklama" id="haricBilgi"></p>
+      </section>
+
+      <section>
+        <h3>Kaynaklar</h3>
+        <p class="aciklama">Kapattığınız kaynakların haberleri bu tarayıcıda gösterilmez.</p>
+        <div id="kaynakListesi" class="kaynak-listesi"></div>
+      </section>
+
+      <section>
+        <h3>Yeni kaynak ekle</h3>
+        <p class="aciklama">
+          Kaynak listesi sitenin GitHub deposundaki <code>kaynaklar.json</code> dosyasında durur ve herkes için
+          ortaktır. Sitenin RSS adresini girin, eklenecek satırı aşağıda hazırlayalım; sonra GitHub'da
+          dosyayı açıp listenin sonuna yapıştırın. RSS'i olmayan siteler için README'deki “sayfa kazıma” bölümüne bakın.
+        </p>
+        <div class="form-izgara">
+          <label>Kaynağın adı <input id="yeniKaynakAd" type="text" placeholder="Örn. Sözcü"></label>
+          <label>RSS adresi <input id="yeniKaynakRss" type="url" placeholder="https://www.ornek.com/rss"></label>
+        </div>
+        <pre class="kod" id="yeniKaynakJson"></pre>
+        <div class="dugme-satiri">
+          <button class="metin-dugme" id="jsonKopyala" type="button">Kopyala</button>
+          <a class="metin-dugme" id="githubDuzenle" target="_blank" rel="noopener noreferrer">GitHub'da kaynaklar.json'u aç</a>
+        </div>
+      </section>
+
+      <section>
+        <h3>Yedekleme</h3>
+        <p class="aciklama">
+          Filtreler, okunanlar ve kaydedilenler yalnızca bu tarayıcıda saklanır. Başka bir cihaza taşımak için
+          dışa aktarıp orada içe aktarın.
+        </p>
+        <div class="dugme-satiri">
+          <button class="metin-dugme" id="disaAktar" type="button">Dışa aktar</button>
+          <label class="metin-dugme">İçe aktar<input id="iceAktar" type="file" accept="application/json,.json" hidden></label>
+          <button class="metin-dugme tehlike" id="varsayilanaDon" type="button">Varsayılan filtrelere dön</button>
+          <button class="metin-dugme tehlike" id="okunanSifirla" type="button">Okunma geçmişini sil</button>
+        </div>
+      </section>
+    </div>
+  </dialog>
+
+  <div class="tost" id="tost" role="status" aria-live="polite"></div>
+
+  <noscript><p class="kap bos">NewsESF'in çalışması için JavaScript gerekiyor.</p></noscript>
+  <script src="filtreler.js"></script>
+  <script src="uygulama.js"></script>
+</body>
+</html>

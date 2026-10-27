@@ -1,0 +1,7 @@
+# Toplayıcının ürettiği veri; GitHub Actions her çalışmada yeniden üretir.
+site/veri/
+
+__pycache__/
+*.pyc
+.venv/
+.vscode/

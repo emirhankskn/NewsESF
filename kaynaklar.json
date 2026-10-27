@@ -1,0 +1,89 @@
+{
+  "_aciklama": "NewsESF haber kaynakları. Yeni kaynak eklemek için 'kaynaklar' listesine bir öğe ekleyin. Ayrıntılar README.md dosyasında.",
+  "saklama_gun": 7,
+  "kaynaklar": [
+    {
+      "id": "aa",
+      "ad": "Anadolu Ajansı",
+      "site": "https://www.aa.com.tr",
+      "rss": [
+        "https://www.aa.com.tr/tr/rss/default?cat=guncel",
+        "https://www.aa.com.tr/tr/rss/default?cat=politika",
+        "https://www.aa.com.tr/tr/rss/default?cat=ekonomi",
+        "https://www.aa.com.tr/tr/rss/default?cat=dunya"
+      ]
+    },
+    {
+      "id": "bbc",
+      "ad": "BBC Türkçe",
+      "site": "https://www.bbc.com/turkce",
+      "rss": ["https://feeds.bbci.co.uk/turkce/rss.xml"]
+    },
+    {
+      "id": "dw",
+      "ad": "DW Türkçe",
+      "site": "https://www.dw.com/tr",
+      "rss": ["https://rss.dw.com/xml/rss-tur-all"]
+    },
+    {
+      "id": "euronews",
+      "ad": "Euronews Türkçe",
+      "site": "https://tr.euronews.com",
+      "rss": ["https://tr.euronews.com/rss"]
+    },
+    {
+      "id": "ntv",
+      "ad": "NTV",
+      "site": "https://www.ntv.com.tr",
+      "rss": [
+        "https://www.ntv.com.tr/turkiye.rss",
+        "https://www.ntv.com.tr/ekonomi.rss",
+        "https://www.ntv.com.tr/dunya.rss"
+      ]
+    },
+    {
+      "id": "t24",
+      "ad": "T24",
+      "site": "https://t24.com.tr",
+      "kose_deseni": "/yazarlar/",
+      "haric_deseni": "/(foto-haber|video|spor|magazin)/",
+      "sayfalar": [
+        { "url": "https://t24.com.tr/politika", "link_deseni": "^https://t24\\.com\\.tr/[a-z-]+/[^/]+,\\d{5,}$" },
+        { "url": "https://t24.com.tr/gundem", "link_deseni": "^https://t24\\.com\\.tr/[a-z-]+/[^/]+,\\d{5,}$" },
+        { "url": "https://t24.com.tr/", "link_deseni": "^https://t24\\.com\\.tr/(?!yazarlar/)[a-z-]+/[^/]+,\\d{5,}$" },
+        { "url": "https://t24.com.tr/son-yazilar", "link_deseni": "^https://t24\\.com\\.tr/yazarlar/[^/]+/[^/]+,\\d+$" }
+      ]
+    },
+    {
+      "id": "bianet",
+      "ad": "Bianet",
+      "site": "https://bianet.org",
+      "rss": ["https://bianet.org/rss/bianet"]
+    },
+    {
+      "id": "haberturk",
+      "ad": "Habertürk",
+      "site": "https://www.haberturk.com",
+      "rss": ["https://www.haberturk.com/rss"]
+    },
+    {
+      "id": "cumhuriyet",
+      "ad": "Cumhuriyet",
+      "site": "https://www.cumhuriyet.com.tr",
+      "rss": ["https://www.cumhuriyet.com.tr/rss/son_dakika.xml"]
+    },
+    {
+      "id": "ekonomim",
+      "ad": "Ekonomim",
+      "site": "https://www.ekonomim.com",
+      "kose_deseni": "/kose-yazisi/",
+      "haric_deseni": "/(foto-galeri|video-galeri)/",
+      "rss": ["https://www.ekonomim.com/export/rss"],
+      "sayfalar": [
+        { "url": "https://www.ekonomim.com/gundem", "link_deseni": "^https://www\\.ekonomim\\.com/.+-haberi-\\d+$" },
+        { "url": "https://www.ekonomim.com/ekonomi", "link_deseni": "^https://www\\.ekonomim\\.com/.+-haberi-\\d+$" },
+        { "url": "https://www.ekonomim.com/yazarlar", "link_deseni": "^https://www\\.ekonomim\\.com/kose-yazisi/[^/]+/\\d+$" }
+      ]
+    }
+  ]
+}
