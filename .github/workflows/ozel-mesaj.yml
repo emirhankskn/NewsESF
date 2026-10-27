@@ -1,0 +1,44 @@
+name: Özel mesaj
+run-name: Özel bildirim
+
+# Sitedeki özel mesaj panelinden tetiklenir (repo sahibinin erişim anahtarıyla).
+on:
+  workflow_dispatch:
+    inputs:
+      baslik:
+        description: Bildirim başlığı
+        required: true
+        type: string
+      mesaj:
+        description: Bildirim metni
+        required: false
+        type: string
+      alicilar:
+        description: Alıcı cihaz adları (JSON listesi, aboneler.txt'deki "ad" alanı)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  gonder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: toplayici/requirements.txt
+
+      - run: pip install -r toplayici/requirements.txt
+
+      # Girdiler ortam değişkeni olarak verilmez (loglarda görünürdü); betik olay dosyasından okur.
+      - name: Mesajı gönder
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SITE_ADRESI: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: python toplayici/ozel_mesaj.py

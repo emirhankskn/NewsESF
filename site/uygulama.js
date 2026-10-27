@@ -105,6 +105,7 @@
     bildirim: Object.assign({ mod: "kapali", onemli: true, kategoriler: [], kaynaklar: [] }, depo.oku("bildirim", {})),
     pushAbonelik: null,
     pushAd: depo.oku("pushAd", ""),
+    ozelAnahtar: depo.oku("ozelAnahtar", ""),
     kayitli: new Map(depo.oku("kayitli", [])),
     oncekiZiyaret: depo.oku("sonZiyaret", null),
     gorunum: Object.assign({ sekme: "onemli", kaynak: "", kategori: "", sira: "yeni", okunanGizle: true }, depo.oku("gorunum", {})),
@@ -602,13 +603,17 @@
 
   // ---------------------------------------------------------------- ayarlar
 
-  function depoAdresi() {
+  function depoBilgisi() {
     const host = location.hostname;
-    if (!host.endsWith(".github.io")) return null;
-    const kullanici = host.split(".")[0];
+    // Yerelde denerken: localStorage'a newsesf.gelistirmeDeposu = {"sahip": "...", "ad": "..."} yazılabilir.
+    if (!host.endsWith(".github.io")) return depo.oku("gelistirmeDeposu", null);
     const ilk = location.pathname.split("/").filter(Boolean)[0];
-    const repo = ilk && !ilk.includes(".") ? ilk : host;
-    return `https://github.com/${kullanici}/${repo}`;
+    return { sahip: host.split(".")[0], ad: ilk && !ilk.includes(".") ? ilk : host };
+  }
+
+  function depoAdresi() {
+    const repo = depoBilgisi();
+    return repo ? `https://github.com/${repo.sahip}/${repo.ad}` : null;
   }
 
   function kategoriDuzenleyiciCiz() {
@@ -896,6 +901,7 @@
       : '<span class="aciklama">Veri yüklenince kaynaklar burada listelenir.</span>';
     izinAlaniCiz();
     pushAlaniCiz();
+    ozelAlanCiz();
   }
 
   function izinAlaniCiz() {
@@ -934,12 +940,11 @@
       kutu.innerHTML = "<p>Bu tarayıcı push bildirimlerini desteklemiyor. Chrome, Edge, Firefox ya da iPhone'da ana ekrana eklenmiş Safari kullanın.</p>";
       return;
     }
-    if (D.bildirim.mod === "kapali") {
-      kutu.innerHTML = "<p>Önce yukarıdan bildirim türünü seçin.</p>";
-      return;
-    }
+    const yalnizOzel = D.bildirim.mod === "kapali"
+      ? "<p><b>Haber bildirimleri kapalı:</b> bu cihaz abone olursa yalnızca özel mesajları alır.</p>"
+      : "";
     if (!D.pushAbonelik) {
-      kutu.innerHTML = `<p>Site kapalıyken de bildirim almak için bu cihaz için bir abonelik kodu oluşturun. Kod, bildirim ayarlarınızı ve filtrelerinizi içerir; GitHub'daki <code>aboneler.txt</code> dosyasına eklendiğinde en geç 30 dakika içinde bildirimler başlar.</p>
+      kutu.innerHTML = `${yalnizOzel}<p>Site kapalıyken de bildirim almak için bu cihaz için bir abonelik kodu oluşturun. Kod, bildirim ayarlarınızı ve filtrelerinizi içerir; GitHub'daki <code>aboneler.txt</code> dosyasına eklendiğinde en geç 30 dakika içinde bildirimler başlar.</p>
         <div class="form-izgara"><label>Bu cihazın adı <input type="text" id="pushAd" placeholder="Örn. Ahmet'in iPhone'u" value="${k(D.pushAd)}"></label></div>
         <div class="dugme-satiri"><button class="metin-dugme birincil" type="button" data-bildirim-eylem="abone">Abonelik kodu oluştur</button></div>`;
       return;
@@ -947,7 +952,7 @@
     const kod = abonelikKodu();
     const guncel = depo.oku("pushGonderilen", "") === abonelikOzeti();
     const repo = depoAdresi();
-    kutu.innerHTML = `<p class="durum acik">Bu cihaz push bildirimlerine abone</p>
+    kutu.innerHTML = `<p class="durum acik">Bu cihaz push bildirimlerine abone</p>${yalnizOzel}
       ${guncel ? "" : `<p class="uyari"><b>Yeni kodu aboneler.txt'ye eklemeniz gerekiyor.</b> Bildirim ayarlarınız ya da filtreleriniz kodu son kopyaladığınızdan beri değişti; sunucu hâlâ eski ayarlarla gönderiyor.</p>`}
       <ol>
         <li>Kodu kopyalayın ya da paylaşın (ör. WhatsApp ile repo sahibine gönderin).</li>
@@ -1020,6 +1025,113 @@
       // file:// ya da desteklenmeyen ortam; bildirimler olmadan devam et.
     }
     if ($("#ayarlar").open) bildirimAyarlariCiz();
+  }
+
+  // ---------------------------------------------------------------- özel mesaj
+  //
+  // Repo sahibinin GitHub erişim anahtarı (yalnızca bu repo, Actions yazma izni) girildiğinde açılır.
+  // Mesaj, .github/workflows/ozel-mesaj.yml iş akışını tetikler; iş akışı yalnızca seçilen cihazlara gönderir.
+  // Anahtar sadece bu tarayıcıda saklanır; sitenin kodunda sır yoktur.
+
+  async function githubIstek(yol, { yontem = "GET", govde, ham = false } = {}) {
+    const repo = depoBilgisi();
+    if (!repo) throw new Error("Bu alan yalnızca GitHub Pages'te yayınlanan sitede çalışır");
+    const yanit = await fetch(`https://api.github.com/repos/${repo.sahip}/${repo.ad}${yol}`, {
+      method: yontem,
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${D.ozelAnahtar}`,
+        Accept: ham ? "application/vnd.github.raw+json" : "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        ...(govde ? { "Content-Type": "application/json" } : {}),
+      },
+      body: govde ? JSON.stringify(govde) : undefined,
+    });
+    if (!yanit.ok) throw new Error(`GitHub yanıtı: ${yanit.status}`);
+    return yanit;
+  }
+
+  // aboneler.txt'deki cihaz adları (aynı cihazın sonraki satırı öncekinin yerine geçer).
+  async function aboneAdlariniGetir() {
+    const metin = await (await githubIstek("/contents/aboneler.txt", { ham: true })).text();
+    const cihazlar = new Map();
+    for (const satir of metin.split("\n").map((s) => s.trim())) {
+      if (!satir || satir.startsWith("#")) continue;
+      try {
+        const abone = JSON.parse(satir);
+        cihazlar.set(abone.abonelik.endpoint, abone.ad || "Adsız cihaz");
+      } catch (e) { /* bozuk satır; sunucu da atlıyor */ }
+    }
+    return [...new Set(cihazlar.values())];
+  }
+
+  function ozelAlanCiz() {
+    const kutu = $("#ozelAlan");
+    if (!D.ozelAnahtar) {
+      kutu.innerHTML = `<div class="ozel-kilit">
+          <input type="password" id="ozelAnahtarGir" placeholder="privateKey" autocomplete="off" spellcheck="false" aria-label="privateKey">
+          <button class="metin-dugme" type="button" data-ozel="ac">Aç</button>
+        </div>`;
+      return;
+    }
+    const secili = new Set(depo.oku("ozelAlicilar", []));
+    kutu.innerHTML = `<p class="durum acik">Özel mesaj</p>
+      <p class="alt-baslik">Alıcı</p>
+      <div class="kutucuklar" id="ozelAlicilar"><span class="aciklama">Cihazlar yükleniyor…</span></div>
+      <div class="ozel-form">
+        <label>Başlık <input type="text" id="ozelBaslik" maxlength="150" autocomplete="off"></label>
+        <label>Mesaj <textarea id="ozelMesaj" rows="3" maxlength="1000"></textarea></label>
+      </div>
+      <div class="dugme-satiri">
+        <button class="metin-dugme birincil" type="button" data-ozel="gonder">Bildirim gönder</button>
+        <button class="metin-dugme" type="button" data-ozel="kilitle">Kilitle</button>
+      </div>`;
+    aboneAdlariniGetir().then((adlar) => {
+      $("#ozelAlicilar").innerHTML = adlar.length
+        ? adlar.map((ad) => `<label class="kutucuk"><input type="checkbox" data-ozel-alici="${k(ad)}"${secili.has(ad) ? " checked" : ""}>${k(ad)}</label>`).join("")
+        : '<span class="aciklama">aboneler.txt\'de henüz cihaz yok.</span>';
+    }).catch((hata) => {
+      $("#ozelAlicilar").innerHTML = `<span class="aciklama">Cihazlar okunamadı: ${k(hata.message)}</span>`;
+    });
+  }
+
+  async function ozelEylem(eylem) {
+    try {
+      if (eylem === "ac") {
+        const anahtar = $("#ozelAnahtarGir").value.trim();
+        if (!anahtar) return;
+        D.ozelAnahtar = anahtar;
+        try {
+          await githubIstek("/actions/workflows/ozel-mesaj.yml");
+        } catch (hata) {
+          D.ozelAnahtar = "";
+          tost(depoBilgisi() ? "Anahtar geçersiz" : hata.message);
+          return;
+        }
+        depo.yaz("ozelAnahtar", anahtar);
+        ozelAlanCiz();
+      } else if (eylem === "kilitle") {
+        D.ozelAnahtar = "";
+        depo.yaz("ozelAnahtar", "");
+        ozelAlanCiz();
+      } else if (eylem === "gonder") {
+        const baslik = $("#ozelBaslik").value.trim();
+        const mesaj = $("#ozelMesaj").value.trim();
+        const alicilar = depo.oku("ozelAlicilar", []).filter((ad) => document.querySelector(`[data-ozel-alici="${CSS.escape(ad)}"]`));
+        if (!baslik) { tost("Başlık yazın"); return; }
+        if (!alicilar.length) { tost("En az bir alıcı seçin"); return; }
+        if (!confirm(`“${baslik}” şu cihazlara gönderilsin mi?\n\n${alicilar.join("\n")}`)) return;
+        await githubIstek("/actions/workflows/ozel-mesaj.yml/dispatches", {
+          yontem: "POST",
+          govde: { ref: "main", inputs: { baslik, mesaj, alicilar: JSON.stringify(alicilar) } },
+        });
+        $("#ozelBaslik").value = "";
+        $("#ozelMesaj").value = "";
+        tost("Gönderildi; yaklaşık 1 dakika içinde ulaşır");
+      }
+    } catch (hata) {
+      tost(`Gönderilemedi: ${hata.message}`);
+    }
   }
 
   // ---------------------------------------------------------------- olaylar
@@ -1117,6 +1229,11 @@
         const kume = new Set(D.bildirim[alan]);
         hedef.checked ? kume.add(id) : kume.delete(id);
         D.bildirim[alan] = [...kume];
+      } else if (hedef.dataset.ozelAlici !== undefined) {
+        const secili = new Set(depo.oku("ozelAlicilar", []));
+        hedef.checked ? secili.add(hedef.dataset.ozelAlici) : secili.delete(hedef.dataset.ozelAlici);
+        depo.yaz("ozelAlicilar", [...secili]);
+        return;
       } else if (hedef.id === "pushAd") {
         D.pushAd = hedef.value.trim();
         depo.yaz("pushAd", D.pushAd);
@@ -1128,6 +1245,11 @@
     bildirimBolumu.addEventListener("click", (e) => {
       const dugme = e.target.closest("[data-bildirim-eylem]");
       if (dugme) bildirimEylemi(dugme.dataset.bildirimEylem);
+      const ozel = e.target.closest("[data-ozel]");
+      if (ozel) ozelEylem(ozel.dataset.ozel);
+    });
+    bildirimBolumu.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target.id === "ozelAnahtarGir") ozelEylem("ac");
     });
     $("#ayarKapat").addEventListener("click", () => pencere.close());
     pencere.addEventListener("click", (e) => { if (e.target === pencere) pencere.close(); });

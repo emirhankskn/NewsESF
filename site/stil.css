@@ -457,6 +457,10 @@ img.favicon { width: 18px; height: 18px; border-radius: 5px; background: var(--y
 .paylas-simge { display: inline-block; padding: 0 4px; border: 1px solid var(--cizgi); border-radius: 5px; font-size: 12px; }
 
 .form-izgara { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-bottom: 10px; }
+.ozel-alan { background: var(--yuzey-2); }
+.ozel-kilit { display: flex; gap: 8px; }
+.ozel-kilit input { flex: 1; min-width: 0; font-family: ui-monospace, Consolas, monospace; font-size: 13px; }
+.ozel-form { display: grid; gap: 10px; margin: 12px 0; }
 .kod {
   margin: 0 0 10px; padding: 12px; overflow-x: auto; background: var(--yuzey); border: 1px solid var(--cizgi);
   border-radius: 10px; font: 12.5px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace; color: var(--ikincil);

@@ -135,6 +135,26 @@ Bir cihaza bildirim gitmesini durdurmak için o cihazın satırlarını silin.
 > tek başına bildirim göndermeye yaramaz, gönderim için sizdeki özel anahtar gerekir. Actions çıktısında
 > “abonelik artık geçerli değil” yazarsa o cihazın satırını silin.
 
+### Özel mesaj
+
+Bildirimler bölümünün altındaki **privateKey** alanına repo sahibinin GitHub erişim anahtarı girilirse özel mesaj
+paneli açılır. Buradan yazılan başlık ve mesaj, yalnızca işaretlenen cihazlara (`aboneler.txt`'deki cihaz adları)
+bildirim olarak gider. Varsayılan olarak hiçbir cihaz seçili değildir. Mesaj yaklaşık 1 dakikada ulaşır.
+
+Anahtarı oluşturmak (bir kerelik):
+
+1. GitHub → sağ üstte profil → **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
+   Generate new token**.
+2. **Repository access:** *Only select repositories* → `NewsESF`.
+3. **Permissions → Repository permissions:** **Actions: Read and write**, **Contents: Read-only**.
+4. Oluşan anahtarı (`github_pat_...`) sitedeki privateKey alanına yapıştırıp **Aç**'a basın. Anahtar yalnızca o
+   tarayıcıda saklanır; **Kilitle** ile silinir.
+
+Anahtar yalnızca bu repodaki iş akışlarını tetikleyebilir; kodu değiştiremez. Kaybolursa ya da sızarsa GitHub'dan
+silip yenisini oluşturun. Mesajın içeriği Actions loglarında görünmez.
+
+Haber bildirimi istemeyen biri de “Kapalı” seçiliyken abonelik kodu oluşturabilir; o cihaz yalnızca özel mesajları alır.
+
 ### Başka bir cihaza taşıma
 
 Ayarlar her tarayıcıda ayrı saklanır. **Ayarlar → Yedekleme → Dışa aktar** ile bir dosya indirip diğer cihazda
@@ -206,11 +226,13 @@ kaynaklar.json                    Haber kaynakları
 aboneler.txt                      Push bildirimi alacak cihazların abonelik kodları
 toplayici/topla.py                Haberleri toplayan, gruplayan Python betiği
 toplayici/bildir.py               Yeni haberler için abonelere push bildirimi gönderen betik
+toplayici/ozel_mesaj.py           Özel mesajı seçilen cihazlara gönderen betik
 site/sw.js                        Site kapalıyken bildirimleri gösteren servis çalışanı
 site/index.html, stil.css         Arayüz
 site/uygulama.js                  Filtreleme, puanlama, okundu takibi, ayarlar
 site/filtreler.js                 Varsayılan filtreler (Siyaset Bilimi ve Kamu Yönetimi)
 .github/workflows/topla.yml       30 dakikada bir çalışan GitHub Actions iş akışı
+.github/workflows/ozel-mesaj.yml  Sitedeki özel mesaj panelinin tetiklediği iş akışı
 ```
 
 ## Sınırlamalar
