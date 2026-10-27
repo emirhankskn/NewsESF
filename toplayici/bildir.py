@@ -9,6 +9,8 @@ Gerekli ortam değişkenleri:
   SITE_ADRESI        Sitenin adresi (bildirim özetine tıklanınca açılır)
 """
 
+import base64
+import binascii
 import json
 import os
 import re
@@ -124,6 +126,20 @@ def olay_yap(grup, haberler):
     }
 
 
+KOD_ONEKI = "NEWSESF1."
+
+
+def abonelik_kodunu_coz(satir):
+    """Abonelik kodunu çözer: "NEWSESF1." + base64url(JSON) ya da eski düz JSON (uygulama.js ile aynı)."""
+    if satir.startswith(KOD_ONEKI):
+        govde = satir[len(KOD_ONEKI):]
+        satir = base64.urlsafe_b64decode(govde + "=" * (-len(govde) % 4)).decode("utf-8")
+    abone = json.loads(satir)
+    if not abone["abonelik"].get("keys"):
+        raise ValueError("abonelik anahtarları eksik")
+    return abone
+
+
 def aboneleri_oku():
     """aboneler.txt: her satır bir abonelik kodu (JSON). # ile başlayan satırlar yorumdur.
 
@@ -138,9 +154,9 @@ def aboneleri_oku():
             if not satir or satir.startswith("#"):
                 continue
             try:
-                abone = json.loads(satir)
+                abone = abonelik_kodunu_coz(satir)
                 aboneler[abone["abonelik"]["endpoint"]] = abone
-            except (ValueError, KeyError, TypeError) as hata:
+            except (ValueError, KeyError, TypeError, binascii.Error) as hata:
                 log(f"✗ aboneler.txt satır {no} okunamadı: {hata}")
     return list(aboneler.values())
 

@@ -124,7 +124,9 @@ Her cihaz için:
    simgesinden açın (iOS 16.4+). Android ve bilgisayarda bu adım gerekmez.
 2. Zil düğmesi → bildirim türünü seçin → izin verin → cihaza bir ad yazıp **Abonelik kodu oluştur**.
 3. **Kodu kopyala** ya da **Paylaş** (ör. WhatsApp ile repo sahibine gönderin).
-4. GitHub'da `aboneler.txt` dosyasının sonuna **yeni bir satır** olarak yapıştırıp kaydedin. En geç 30 dakika
+4. GitHub'da `aboneler.txt` dosyasının sonuna **yeni bir satır** olarak yapıştırıp kaydedin. Kod `NEWSESF1.` ile
+   başlayan uzun, tek parça bir metindir; yalnızca `https://...` ile başlayan bir adres geldiyse kod eksik kopyalanmıştır.
+   En geç 30 dakika
    içinde bildirimler başlar.
 
 Bildirim ayarlarını ya da filtreleri sonradan değiştirirseniz site “Yeni kodu aboneler.txt'ye eklemeniz

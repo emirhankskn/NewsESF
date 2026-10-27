@@ -864,14 +864,33 @@
 
   const abonelikOzeti = () => JSON.stringify([D.pushAbonelik && D.pushAbonelik.endpoint, bildirimKurali(), sunucuFiltresi(), D.pushAd]);
 
+  // Kod, "NEWSESF1." + base64url(JSON) biçimindedir. Düz JSON'un içinde web adresi geçtiği için
+  // iPhone'un paylaşma menüsü ve mesajlaşma uygulamaları metnin tamamı yerine yalnızca linki gönderebiliyor.
+  const KOD_ONEKI = "NEWSESF1.";
+
   function abonelikKodu() {
-    return JSON.stringify({
+    const json = JSON.stringify({
       ad: D.pushAd || "Adsız cihaz",
       tarih: new Date().toISOString().slice(0, 10),
       abonelik: D.pushAbonelik.toJSON(),
       kural: bildirimKurali(),
       filtre: sunucuFiltresi(),
     });
+    let ikili = "";
+    for (const bayt of new TextEncoder().encode(json)) ikili += String.fromCharCode(bayt);
+    return KOD_ONEKI + btoa(ikili).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  // aboneler.txt satırını çözer: yeni biçim (NEWSESF1.…) ya da eski düz JSON. Geçersizse hata fırlatır.
+  function abonelikKodunuCoz(satir) {
+    let json = satir;
+    if (satir.startsWith(KOD_ONEKI)) {
+      const ikili = atob(satir.slice(KOD_ONEKI.length).replace(/-/g, "+").replace(/_/g, "/"));
+      json = new TextDecoder().decode(Uint8Array.from(ikili, (c) => c.charCodeAt(0)));
+    }
+    const abone = JSON.parse(json);
+    if (!abone.abonelik || !abone.abonelik.endpoint || !abone.abonelik.keys) throw new Error("eksik abonelik");
+    return abone;
   }
 
   function bildirimKaydet() {
@@ -1055,14 +1074,18 @@
   async function aboneAdlariniGetir() {
     const metin = await (await githubIstek("/contents/aboneler.txt", { ham: true })).text();
     const cihazlar = new Map();
-    for (const satir of metin.split("\n").map((s) => s.trim())) {
-      if (!satir || satir.startsWith("#")) continue;
+    const bozuklar = [];
+    metin.split("\n").forEach((ham, i) => {
+      const satir = ham.trim();
+      if (!satir || satir.startsWith("#")) return;
       try {
-        const abone = JSON.parse(satir);
+        const abone = abonelikKodunuCoz(satir);
         cihazlar.set(abone.abonelik.endpoint, abone.ad || "Adsız cihaz");
-      } catch (e) { /* bozuk satır; sunucu da atlıyor */ }
-    }
-    return [...new Set(cihazlar.values())];
+      } catch (e) {
+        bozuklar.push(i + 1);
+      }
+    });
+    return { adlar: [...new Set(cihazlar.values())], bozuklar };
   }
 
   function ozelAlanCiz() {
@@ -1086,10 +1109,13 @@
         <button class="metin-dugme birincil" type="button" data-ozel="gonder">Bildirim gönder</button>
         <button class="metin-dugme" type="button" data-ozel="kilitle">Kilitle</button>
       </div>`;
-    aboneAdlariniGetir().then((adlar) => {
-      $("#ozelAlicilar").innerHTML = adlar.length
+    aboneAdlariniGetir().then(({ adlar, bozuklar }) => {
+      $("#ozelAlicilar").innerHTML = (adlar.length
         ? adlar.map((ad) => `<label class="kutucuk"><input type="checkbox" data-ozel-alici="${k(ad)}"${secili.has(ad) ? " checked" : ""}>${k(ad)}</label>`).join("")
-        : '<span class="aciklama">aboneler.txt\'de henüz cihaz yok.</span>';
+        : '<span class="aciklama">aboneler.txt\'de henüz cihaz yok.</span>')
+        + (bozuklar.length
+          ? `<p class="uyari">aboneler.txt'de okunamayan satır var (satır ${bozuklar.join(", ")}). Kodun tamamı yapıştırılmamış olabilir; o cihazdan kodu yeniden isteyin.</p>`
+          : "");
     }).catch((hata) => {
       $("#ozelAlicilar").innerHTML = `<span class="aciklama">Cihazlar okunamadı: ${k(hata.message)}</span>`;
     });
