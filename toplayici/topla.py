@@ -36,6 +36,7 @@ TURKIYE = timezone(timedelta(hours=3))
 OZET_UZUNLUK = 280
 SAYFA_BASINA_LINK = 40
 DETAY_SINIRI = 60  # Kaynak başına, bir çalışmada açılacak en fazla haber sayfası
+GORSEL_SINIRI = 50  # Kaynak başına, bir çalışmada kapak fotoğrafı aranacak en fazla haber
 EN_FAZLA_HABER = 8000
 
 TARAYICI = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
@@ -146,7 +147,54 @@ def rss_oku(url):
             "ozet": ozet_hazirla(e.get("summary") or e.get("description"), baslik),
             "tarih": datetime.fromtimestamp(calendar.timegm(zaman), timezone.utc) if zaman else None,
             "yazar": temiz_metin(e.get("author")),
+            "gorsel": rss_gorseli(e),
         }
+
+
+def rss_gorseli(e):
+    """RSS öğesindeki fotoğrafı bulur (media:content, media:thumbnail, enclosure ya da özetteki <img>)."""
+    adaylar = [m.get("url") for m in e.get("media_content", [])
+               if m.get("medium", "image") == "image" and "video" not in m.get("type", "")]
+    adaylar += [m.get("url") for m in e.get("media_thumbnail", [])]
+    adaylar += [b.get("href") for b in e.get("enclosures", []) + e.get("links", [])
+                if b.get("type", "").startswith("image")]
+    img = re.search(r'<img[^>]+src=["\']([^"\']+)', e.get("summary") or "")
+    if img:
+        adaylar.append(html.unescape(img.group(1)))
+    return next((gorsel_iyilestir(a) for a in adaylar if a and a.startswith("http")), "")
+
+
+# Bazı kaynaklar RSS'te çok küçük ya da çok büyük fotoğraf veriyor; adresteki boyutu kart için uygun hale getir.
+GORSEL_BOYUTLARI = [
+    (re.compile(r"(ichef\.bbci\.co\.uk/ace/ws/)\d+/"), r"\g<1>480/"),
+    (re.compile(r"(im\.haberturk\.com/.+/jpg/)\d+x\d+$"), r"\g<1>640x360"),
+    (re.compile(r"(img\.ekonomim\.com/rcman/)Cw\d+h\d+"), r"\g<1>Cw480h270"),
+]
+
+
+def gorsel_iyilestir(url):
+    for desen, yeni in GORSEL_BOYUTLARI:
+        url = desen.sub(yeni, url)
+    return url
+
+
+def kapak_gorseli_oku(link):
+    """Haber sayfasından og:image adresini okur; etiket bulununca indirmeyi keser."""
+    with OTURUM.get(link, headers={"User-Agent": TARAYICI, "Accept": "text/html"}, timeout=20, stream=True) as yanit:
+        yanit.raise_for_status()
+        parca = b""
+        for blok in yanit.iter_content(16384):
+            parca += blok
+            # AA gibi bazı siteler meta etiketlerini sayfanın derinlerine koyuyor, </head>'e güvenilmez.
+            konum = parca.find(b"og:image")
+            if (konum != -1 and parca.find(b">", konum) != -1) or len(parca) > 600_000:
+                break
+    soup = BeautifulSoup(parca.decode(yanit.encoding or "utf-8", errors="ignore"), "html.parser")
+    for ad in ("og:image", "twitter:image"):
+        etiket = soup.find("meta", attrs={"property": ad}) or soup.find("meta", attrs={"name": ad})
+        if etiket and etiket.get("content", "").strip():
+            return gorsel_iyilestir(urljoin(link, etiket["content"].strip()))
+    return ""
 
 
 def sayfa_oku(sayfa):
@@ -196,11 +244,13 @@ def detay_oku(link):
     parcalar = [p for p in re.split(r"\s+[|–]\s+", baslik) if ad_duzelt(p) != yazar]
     if len(parcalar) > 1 and len(parcalar[-1]) <= 25:
         parcalar.pop()
+    gorsel = meta("og:image", "twitter:image")
     return {
         "baslik": " | ".join(parcalar),
         "ozet_ham": meta("og:description", "description"),
         "tarih": iso_oku(meta("article:published_time", "datePublished", "pubdate")),
         "yazar": yazar,
+        "gorsel": gorsel_iyilestir(urljoin(link, gorsel)) if gorsel else "",
     }
 
 
@@ -242,6 +292,7 @@ def kaynagi_topla(kaynak, onceki, simdi):
             "tarih": iso(min(tarih, simdi)),
             "tur": "kose" if kose and kose.search(link) else "haber",
             **({"yazar": ham["yazar"]} if ham.get("yazar") else {}),
+            **({"gorsel": ham["gorsel"]} if ham.get("gorsel") else {}),
             **({"eksik": True} if detay_gerekli else {}),
         }
 
@@ -289,7 +340,28 @@ def kaynagi_topla(kaynak, onceki, simdi):
                 haber["tarih"] = iso(min(detay["tarih"], simdi))
             if detay["yazar"]:
                 haber["yazar"] = detay["yazar"]
+            haber["gorsel"] = detay["gorsel"]
             haber.pop("eksik", None)
+
+    # RSS'i fotoğraf vermeyen kaynaklar (AA, DW, Euronews) için kapak fotoğrafını haber sayfasından al.
+    # "gorsel" alanı hiç yoksa henüz denenmemiştir; "" ise denenmiş ve bulunamamıştır.
+    sinir = iso(simdi - timedelta(days=2))
+    gorselsizler = [h for h in haberler.values() if "gorsel" not in h and not h.get("eksik")]
+    gorselsizler += [h for h in onceki.values()
+                     if h["kaynak"] == kaynak["id"] and "gorsel" not in h and h["id"] not in haberler
+                     and not h.get("eksik") and h["tarih"] >= sinir]
+    gorselsizler = sorted(gorselsizler, key=lambda h: h["tarih"], reverse=True)[:GORSEL_SINIRI]
+
+    def gorsel_bul(haber):
+        try:
+            return haber, kapak_gorseli_oku(haber["link"])
+        except Exception:  # noqa: BLE001
+            return haber, None
+
+    with ThreadPoolExecutor(6) as havuz:
+        for haber, gorsel in havuz.map(gorsel_bul, gorselsizler):
+            if gorsel is not None:
+                haberler.setdefault(haber["id"], dict(haber))["gorsel"] = gorsel
 
     for kimlik in [k for k, h in haberler.items() if not h["baslik"]]:
         del haberler[kimlik]
@@ -433,8 +505,11 @@ def main():
             elif eski.get("eksik") and not gelen.get("eksik"):
                 eski.update({k: v for k, v in gelen.items() if k != "eksik"})
                 eski.pop("eksik", None)
-            elif not eski.get("ozet") and gelen.get("ozet"):
-                eski["ozet"] = gelen["ozet"]
+            else:
+                if not eski.get("ozet") and gelen.get("ozet"):
+                    eski["ozet"] = gelen["ozet"]
+                if "gorsel" in gelen and not eski.get("gorsel"):
+                    eski["gorsel"] = gelen["gorsel"]
 
     if not any(d["basarili"] for d in durum.values()):
         sys.exit("Hiçbir kaynak okunamadı; mevcut veri korunuyor.")

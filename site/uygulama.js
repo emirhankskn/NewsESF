@@ -76,6 +76,7 @@
   const saatBicim = new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" });
   const tamBicim = new Intl.DateTimeFormat("tr-TR", { dateStyle: "long", timeStyle: "short" });
   const gunBicim = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short" });
+  const bugunBicim = new Intl.DateTimeFormat("tr-TR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   function goreliZaman(ms) {
     const fark = (Date.now() - ms) / 60000;
@@ -145,6 +146,7 @@
       haberler,
       ana,
       ozet: (haberler.find((h) => h.ozet) || {}).ozet || "",
+      gorsel: ana.gorsel || (haberler.find((h) => h.gorsel) || {}).gorsel || "",
       tarih: Date.parse(ana.tarih),
       ilk: Math.min(...haberler.map((h) => Date.parse(h.ilk || h.tarih))),
       kaynaklar: new Set(haberler.map((h) => h.kaynak)),
@@ -241,40 +243,62 @@
 
   const kaynakAdi = (id) => (D.veri && D.veri.kaynaklar[id] ? D.veri.kaynaklar[id].ad : id);
 
+  function favicon(id) {
+    const kaynak = D.veri && D.veri.kaynaklar[id];
+    if (!kaynak || !kaynak.site) return "";
+    try {
+      const alan = new URL(kaynak.site).hostname;
+      return `<img class="favicon" src="https://www.google.com/s2/favicons?domain=${k(alan)}&amp;sz=64" alt="" loading="lazy">`;
+    } catch (e) {
+      return "";
+    }
+  }
+
+  const gorselHtml = (url) =>
+    `<img src="${k(guvenliLink(url))}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+
+  function kategoriEtiketleri(p, adet) {
+    return p.etiketler.slice(0, adet).map((e) =>
+      `<span class="kat" style="--renk:${k(e.kat.renk)}" title="Eşleşen: ${k(e.bulunan.join(", "))} · ${e.p} puan">${k(e.kat.ad)}</span>`).join("");
+  }
+
   function kartHtml(olay) {
     const { ana, p } = olay;
     const okundu = okunduMu(olay);
     const onemli = p.puan >= D.derli.esik;
     const kayitli = D.kayitli.has(olay.id);
-    const rozetler = [];
-    if (yeniMi(olay)) rozetler.push('<span class="rozet yeni">Yeni</span>');
-    if (onemli) {
-      const yildiz = p.puan >= D.derli.esik * 2 ? "★★" : "★";
-      rozetler.push(`<span class="rozet onem" title="Önem puanı ${p.puan} (eşik ${D.derli.esik})">${yildiz} Önemli</span>`);
-    }
-    if (olay.kose) rozetler.push('<span class="rozet kose">Köşe yazısı</span>');
-    for (const e of p.etiketler.slice(0, 3)) {
-      rozetler.push(`<span class="etiket" style="--renk:${k(e.kat.renk)}" title="Eşleşen: ${k(e.bulunan.join(", "))} · ${e.p} puan"><span class="nokta"></span>${k(e.kat.ad)}</span>`);
-    }
+    const link = k(guvenliLink(ana.link));
+
+    const ust = [];
+    if (onemli) ust.push(`<span class="rozet onem" title="Önem puanı ${p.puan} (eşik ${D.derli.esik})">${p.puan >= D.derli.esik * 2 ? "★★" : "★"} Önemli</span>`);
+    if (yeniMi(olay)) ust.push('<span class="rozet yeni">Yeni</span>');
+    if (olay.kose) ust.push('<span class="rozet kose">Köşe yazısı</span>');
+    ust.push(kategoriEtiketleri(p, 2));
 
     const digerSayi = olay.haberler.length - 1;
     const digerleri = digerSayi > 0
       ? `<ul class="diger-kaynaklar" hidden>${olay.haberler.map((h) => `
-          <li><b>${k(kaynakAdi(h.kaynak))}</b><a href="${k(guvenliLink(h.link))}" target="_blank" rel="noopener noreferrer" data-oku>${k(h.baslik)}</a><time>${k(saatBicim.format(Date.parse(h.tarih)))}</time></li>`).join("")}
+          <li><b>${favicon(h.kaynak)}${k(kaynakAdi(h.kaynak))}</b><a href="${k(guvenliLink(h.link))}" target="_blank" rel="noopener noreferrer" data-oku>${k(h.baslik)}</a><time>${k(saatBicim.format(Date.parse(h.tarih)))}</time></li>`).join("")}
         </ul>`
+      : "";
+    const kaynakDugmesi = digerSayi > 0
+      ? `<button class="kaynak-sayisi" type="button" data-eylem="kaynaklar" aria-expanded="false"><span class="favicon-yigin">${[...olay.kaynaklar].slice(0, 3).map(favicon).join("")}</span>${olay.kaynaklar.size > 1 ? `${olay.kaynaklar.size} kaynakta` : `${olay.haberler.length} haber`}</button>`
       : "";
 
     const yazar = ana.yazar && olay.kose ? `<span class="ayrac"></span><span>${k(ana.yazar)}</span>` : "";
     return `
-      <article class="kart${okundu ? " okundu" : ""}${onemli ? " onemli" : ""}" data-id="${k(olay.id)}">
-        ${rozetler.length ? `<div class="kart-ust">${rozetler.join("")}</div>` : ""}
-        <h2 class="kart-baslik"><a href="${k(guvenliLink(ana.link))}" target="_blank" rel="noopener noreferrer" data-oku>${k(ana.baslik)}</a></h2>
-        ${olay.ozet ? `<p class="kart-ozet">${k(olay.ozet)}</p>` : ""}
+      <article class="kart${okundu ? " okundu" : ""}${olay.gorsel ? "" : " gorselsiz"}" data-id="${k(olay.id)}">
+        <div class="kart-metin">
+          <div class="ust-baslik">${ust.join("")}</div>
+          <h2 class="kart-baslik"><a href="${link}" target="_blank" rel="noopener noreferrer" data-oku>${k(ana.baslik)}</a></h2>
+          ${olay.ozet ? `<p class="kart-ozet">${k(olay.ozet)}</p>` : ""}
+        </div>
+        ${olay.gorsel ? `<a class="kart-gorsel" href="${link}" target="_blank" rel="noopener noreferrer" data-oku tabindex="-1" aria-hidden="true">${gorselHtml(olay.gorsel)}</a>` : ""}
         <div class="kart-alt">
-          <span class="kaynak">${k(kaynakAdi(ana.kaynak))}</span>${yazar}
+          <span class="kaynak-imza">${favicon(ana.kaynak)}${k(kaynakAdi(ana.kaynak))}</span>${yazar}
           <span class="ayrac"></span>
           <time datetime="${k(ana.tarih)}" title="${k(tamBicim.format(olay.tarih))}">${k(goreliZaman(olay.tarih))}</time>
-          ${digerSayi > 0 ? `<button class="kaynak-sayisi" type="button" data-eylem="kaynaklar" aria-expanded="false">${IKON.katman}${olay.kaynaklar.size > 1 ? `${olay.kaynaklar.size} kaynakta` : `${olay.haberler.length} haber`}</button>` : ""}
+          ${kaynakDugmesi}
           <span class="kart-eylem">
             <button class="ikon-dugme" type="button" data-eylem="kaydet" aria-pressed="${kayitli}" title="${kayitli ? "Kayıtlardan çıkar" : "Sonra okumak için kaydet"}">${kayitli ? IKON.yerImiDolu : IKON.yerImi}</button>
             <button class="ikon-dugme" type="button" data-eylem="okundu" aria-pressed="${okundu}" title="${okundu ? "Okunmadı yap" : "Okundu işaretle"}">${okundu ? IKON.geri : IKON.tik}</button>
@@ -282,6 +306,32 @@
         </div>
         ${digerleri}
       </article>`;
+  }
+
+  function mansetKartHtml(olay) {
+    const { ana, p } = olay;
+    const ilkEtiket = p.etiketler[0];
+    const etiketler = [];
+    if (p.puan >= D.derli.esik) etiketler.push('<span class="manset-etiket">Önemli</span>');
+    if (ilkEtiket) etiketler.push(`<span class="manset-etiket" style="--renk:${k(ilkEtiket.kat.renk)}">${k(ilkEtiket.kat.ad)}</span>`);
+    return `
+      <a class="manset-kart" href="${k(guvenliLink(ana.link))}" target="_blank" rel="noopener noreferrer" data-id="${k(olay.id)}">
+        ${gorselHtml(olay.gorsel)}
+        <div class="manset-icerik">
+          ${etiketler.length ? `<div class="manset-ust">${etiketler.join("")}</div>` : ""}
+          <h2 class="manset-baslik">${k(ana.baslik)}</h2>
+          <div class="manset-alt">${favicon(ana.kaynak)}<span>${k(kaynakAdi(ana.kaynak))}</span><span>·</span><span>${k(goreliZaman(olay.tarih))}</span>${olay.kaynaklar.size > 1 ? `<span>·</span><span>${olay.kaynaklar.size} kaynakta</span>` : ""}</div>
+        </div>
+      </a>`;
+  }
+
+  // Listenin en yeni haberleri arasından fotoğraflı en önemli üçü manşete çıkar.
+  function mansetSec(liste) {
+    if (D.gorunum.sekme === "kayitli" || D.arama) return [];
+    const adaylar = liste.slice(0, 40).filter((o) => o.gorsel && !okunduMu(o) && o.p.puan > 0)
+      .sort((a, b) => b.p.puan - a.p.puan || b.tarih - a.tarih)
+      .slice(0, 3);
+    return adaylar.length === 3 ? adaylar : [];
   }
 
   function bosMesaj() {
@@ -299,14 +349,21 @@
 
   function listeyiCiz() {
     gorunurCache = gorunurOlaylar();
+    const manset = mansetSec(gorunurCache);
+    const mansetKutu = $("#manset");
+    mansetKutu.hidden = !manset.length;
+    mansetKutu.innerHTML = manset.map(mansetKartHtml).join("");
+
+    const mansetteki = new Set(manset.map((o) => o.id));
+    const kalanlar = gorunurCache.filter((o) => !mansetteki.has(o.id));
     const liste = $("#liste");
     if (!gorunurCache.length) {
       const [baslik, metin] = bosMesaj();
       liste.innerHTML = `<p class="bos"><b>${k(baslik)}</b>${k(metin)}</p>`;
     } else {
-      liste.innerHTML = gorunurCache.slice(0, D.gosterilen).map(kartHtml).join("");
+      liste.innerHTML = kalanlar.slice(0, D.gosterilen).map(kartHtml).join("");
     }
-    const kalan = gorunurCache.length - D.gosterilen;
+    const kalan = kalanlar.length - D.gosterilen;
     const daha = $("#dahaFazla");
     daha.hidden = kalan <= 0;
     daha.textContent = `Daha fazla göster (${kalan} haber daha)`;
@@ -324,36 +381,40 @@
   }
 
   function ciplerCiz() {
-    const kutu = $("#kategoriCipleri");
-    if (D.gorunum.sekme === "kayitli" || !D.derli.kategoriler.length) { kutu.innerHTML = ""; return; }
+    const kenar = $(".kenar");
+    kenar.hidden = D.gorunum.sekme === "kayitli" || !D.veri;
+    if (kenar.hidden) return;
     const temel = sekmeOlaylari(D.gorunum.sekme);
-    const cipler = D.derli.kategoriler.map((kat) => {
+
+    const kategoriler = D.derli.kategoriler.map((kat) => {
       const adet = temel.filter((o) => o.p.etiketler.some((e) => e.kat.id === kat.id)).length;
-      return `<button class="cip" type="button" data-kategori="${k(kat.id)}" aria-pressed="${D.gorunum.kategori === kat.id}" style="--renk:${k(kat.renk)}"><span class="nokta"></span>${k(kat.ad)} <span class="sayi">${adet}</span></button>`;
+      return `<button class="cip" type="button" data-kategori="${k(kat.id)}" aria-pressed="${D.gorunum.kategori === kat.id}" style="--renk:${k(kat.renk)}"><span class="nokta"></span><span class="ad">${k(kat.ad)}</span><span class="sayi">${adet}</span></button>`;
     });
-    kutu.innerHTML = `<button class="cip" type="button" data-kategori="" aria-pressed="${!D.gorunum.kategori}">Hepsi</button>` + cipler.join("");
+    $("#kategoriCipleri").innerHTML =
+      `<button class="cip" type="button" data-kategori="" aria-pressed="${!D.gorunum.kategori}"><span class="nokta"></span><span class="ad">Tüm kategoriler</span><span class="sayi">${temel.length}</span></button>` + kategoriler.join("");
+
+    const kapali = new Set(D.filtre.kapaliKaynaklar);
+    const kaynaklar = Object.keys(D.veri.kaynaklar).filter((id) => !kapali.has(id));
+    if (!kaynaklar.includes(D.gorunum.kaynak)) D.gorunum.kaynak = "";
+    const satirlar = kaynaklar
+      .map((id) => ({ id, adet: temel.filter((o) => o.kaynaklar.has(id)).length }))
+      .sort((a, b) => b.adet - a.adet)
+      .map(({ id, adet }) => `<button class="cip" type="button" data-kaynak-filtre="${k(id)}" aria-pressed="${D.gorunum.kaynak === id}">${favicon(id)}<span class="ad">${k(kaynakAdi(id))}</span><span class="sayi">${adet}</span></button>`);
+    $("#kaynakCipleri").innerHTML =
+      `<button class="cip" type="button" data-kaynak-filtre="" aria-pressed="${!D.gorunum.kaynak}"><span class="nokta"></span><span class="ad">Tüm kaynaklar</span><span class="sayi">${temel.length}</span></button>` + satirlar.join("");
   }
 
   function guncellemeCiz() {
+    $("#bugun").textContent = bugunBicim.format(new Date());
     const alan = $("#guncelleme");
     if (!D.veri) return;
     const zaman = Date.parse(D.veri.guncelleme);
     const eski = Date.now() - zaman > ESKI_VERI_SAATI * 3600 * 1000;
     alan.classList.toggle("eski", eski);
-    alan.innerHTML = `<span class="onek">Güncellendi: </span>${k(goreliZaman(zaman))}`;
+    alan.textContent = `Güncellendi ${goreliZaman(zaman)}`;
     alan.title = eski
       ? `Veri ${tamBicim.format(zaman)} tarihinden beri güncellenmedi. GitHub Actions çalışıyor mu?`
       : tamBicim.format(zaman);
-  }
-
-  function kaynakSeciciCiz() {
-    const sec = $("#kaynakSec");
-    const kapali = new Set(D.filtre.kapaliKaynaklar);
-    const kaynaklar = Object.entries(D.veri.kaynaklar).filter(([id]) => !kapali.has(id));
-    sec.innerHTML = '<option value="">Tüm kaynaklar</option>' +
-      kaynaklar.map(([id, kay]) => `<option value="${k(id)}">${k(kay.ad)}</option>`).join("");
-    if (!kaynaklar.some(([id]) => id === D.gorunum.kaynak)) D.gorunum.kaynak = "";
-    sec.value = D.gorunum.kaynak;
   }
 
   function temaCiz() {
@@ -390,7 +451,6 @@
     for (const id of D.okunan) if (!idler.has(id)) D.okunan.delete(id);
     if (D.okunan.size !== once) okunanKaydet();
     olaylariKur();
-    kaynakSeciciCiz();
     guncellemeCiz();
     listeyiCiz();
   }
@@ -473,6 +533,13 @@
     setTimeout(() => { kart.remove(); if (!$("#liste .kart")) listeyiCiz(); else sayilariCiz(); }, 250);
   }
 
+  function mansetTiklama(olayNesnesi) {
+    const kart = olayNesnesi.target.closest(".manset-kart");
+    if (!kart || (olayNesnesi.type === "auxclick" && olayNesnesi.button !== 1)) return;
+    const olay = olayBul(kart.dataset.id);
+    if (olay && !okunduMu(olay)) { okunduYap(olay, true); sayilariCiz(); }
+  }
+
   function listeTiklama(olayNesnesi) {
     const kart = olayNesnesi.target.closest(".kart");
     if (!kart) return;
@@ -507,7 +574,7 @@
         D.kayitli.delete(olay.id);
         tost("Kayıtlardan çıkarıldı");
       } else {
-        const haberler = olay.haberler.map(({ id, kaynak, baslik, ozet, link, tarih, ilk, tur, yazar }) => ({ id, kaynak, baslik, ozet, link, tarih, ilk, tur, yazar, grup: olay.id }));
+        const haberler = olay.haberler.map(({ id, kaynak, baslik, ozet, link, tarih, ilk, tur, yazar, gorsel }) => ({ id, kaynak, baslik, ozet, link, tarih, ilk, tur, yazar, gorsel, grup: olay.id }));
         D.kayitli.set(olay.id, { id: olay.id, kayit: Date.now(), haberler });
         tost("Kaydedildi");
       }
@@ -624,7 +691,7 @@
     filtreDerle();
     filtreKaydet();
     if (D.veri) {
-      if (kaynaklar) { olaylariKur(); kaynakSeciciCiz(); } else puanlariHesapla();
+      if (kaynaklar) olaylariKur(); else puanlariHesapla();
     }
     if (D.gorunum.kategori && !D.derli.kategoriler.some((kat) => kat.id === D.gorunum.kategori)) D.gorunum.kategori = "";
     ayarBilgileriniCiz();
@@ -700,7 +767,22 @@
       clearTimeout(aramaZamanlayici);
       aramaZamanlayici = setTimeout(() => { D.arama = e.target.value; gorunumDegisti(); }, 200);
     });
-    $("#kaynakSec").addEventListener("change", (e) => { D.gorunum.kaynak = e.target.value; gorunumDegisti(); });
+    $("#kaynakCipleri").addEventListener("click", (e) => {
+      const cip = e.target.closest("[data-kaynak-filtre]");
+      if (!cip) return;
+      D.gorunum.kaynak = D.gorunum.kaynak === cip.dataset.kaynakFiltre ? "" : cip.dataset.kaynakFiltre;
+      gorunumDegisti();
+    });
+    $("#manset").addEventListener("click", mansetTiklama);
+    $("#manset").addEventListener("auxclick", mansetTiklama);
+    // Yüklenemeyen fotoğraf ve logoları gizle; kart fotoğrafsız düzene geçsin.
+    document.addEventListener("error", (e) => {
+      const img = e.target;
+      if (!(img instanceof HTMLImageElement)) return;
+      const kartGorsel = img.closest(".kart-gorsel");
+      if (kartGorsel) { kartGorsel.closest(".kart").classList.add("gorselsiz"); kartGorsel.remove(); }
+      else img.remove();
+    }, true);
     $("#siraSec").value = D.gorunum.sira;
     $("#siraSec").addEventListener("change", (e) => { D.gorunum.sira = e.target.value; gorunumDegisti(); });
     $("#okunanGizle").checked = D.gorunum.okunanGizle;
@@ -818,6 +900,7 @@
 
   filtreYukle();
   baglantilariKur();
+  guncellemeCiz();
   sayilariCiz();
   ilkYukleme();
 })();

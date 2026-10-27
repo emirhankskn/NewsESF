@@ -15,8 +15,9 @@ GitHub Actions (her 30 dk)
   └─ toplayici/topla.py
        1. kaynaklar.json'daki RSS beslemelerini ve sayfaları okur
        2. Yeni haberleri önceki haberlerle birleştirir (aynı link iki kez girmez)
-       3. Aynı olayı anlatan haberleri gruplar ("5 kaynakta")
-       4. site/veri/haberler.json dosyasını yazar ve siteyi yayınlar
+       3. Haber fotoğraflarını bulur (RSS'ten ya da haber sayfasının kapak görselinden)
+       4. Aynı olayı anlatan haberleri gruplar ("5 kaynakta")
+       5. site/veri/haberler.json dosyasını yazar ve siteyi yayınlar
 
 GitHub Pages (site/ klasörü)
   └─ Tarayıcı haberler.json'u indirir, filtreleri uygular, puanlar ve listeler
@@ -59,6 +60,7 @@ Bundan sonra hiçbir şey yapmanıza gerek yok. Haberler her 30 dakikada bir ken
 - **Önemli:** puanı önem eşiğini geçen haberler (varsayılan eşik 15).
 - **İlgili:** en az bir filtre kategorisiyle eşleşen tüm haberler.
 - **Tümü:** hariç tutulanlar dışındaki her şey.
+- Liste fotoğraflı en önemli üç haberle (manşet) başlar; masaüstünde sağdaki kenar çubuğundan kategoriye ve kaynağa göre süzebilirsiniz.
 - **Kaydedilenler:** yer imi düğmesiyle sakladıklarınız. Haber 7 gün sonra listeden düşse bile burada kalır.
 
 Bir habere tıkladığınızda ya da ✓ düğmesine bastığınızda haber **okundu** sayılır ve (“Okunanları gizle” açıksa)

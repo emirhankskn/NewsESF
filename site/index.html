@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>NewsESF</title>
   <meta name="description" content="Siyaset bilimi ve kamu yönetimi için filtrelenmiş güncel haberler.">
-  <meta name="theme-color" content="#7f1d2d">
+  <meta name="theme-color" content="#0b1f3a">
   <link rel="icon" href="simge.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="simge.svg">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@800;900&display=swap">
   <link rel="stylesheet" href="stil.css">
   <script>
     // Tema, sayfa çizilmeden önce uygulansın ki açılışta renk sıçraması olmasın.
@@ -19,58 +19,76 @@
   </script>
 </head>
 <body>
-  <header class="ust">
-    <div class="kap ust-ic">
-      <a class="logo" href="./" aria-label="NewsESF ana sayfa">
-        <span class="logo-isaret" aria-hidden="true">§</span>
-        <span>News<b>ESF</b></span>
-      </a>
-      <span class="guncelleme" id="guncelleme" aria-live="polite"></span>
-      <div class="ust-dugmeler">
+  <header class="maset">
+    <div class="kap maset-ic">
+      <p class="maset-tarih" id="bugun"></p>
+      <a class="logo" href="./" aria-label="NewsESF ana sayfa">News<span>ESF</span></a>
+      <p class="maset-slogan">Siyaset <i></i> Kamu Yönetimi <i></i> Gündem</p>
+    </div>
+  </header>
+
+  <div class="serit">
+    <div class="kap serit-ic">
+      <nav class="sekmeler" id="sekmeler" role="tablist" aria-label="Haber listeleri">
+        <button role="tab" data-sekme="onemli" type="button">Önemli <span class="sayi"></span></button>
+        <button role="tab" data-sekme="ilgili" type="button">İlgili <span class="sayi"></span></button>
+        <button role="tab" data-sekme="tumu" type="button">Tümü <span class="sayi"></span></button>
+        <button role="tab" data-sekme="kayitli" type="button"><span class="uzun">Kaydedilenler</span><span class="kisa">Kayıtlı</span> <span class="sayi"></span></button>
+      </nav>
+      <div class="serit-dugmeler">
+        <span class="guncelleme" id="guncelleme" aria-live="polite"></span>
         <button class="ikon-dugme" id="yenileDugme" type="button" title="Yenile" aria-label="Haberleri yenile"></button>
         <button class="ikon-dugme" id="temaDugme" type="button" title="Tema" aria-label="Temayı değiştir"></button>
         <button class="ikon-dugme" id="ayarDugme" type="button" title="Ayarlar ve filtreler" aria-label="Ayarlar ve filtreler"></button>
       </div>
     </div>
-  </header>
+  </div>
 
-  <main class="kap">
-    <nav class="sekmeler" id="sekmeler" role="tablist" aria-label="Haber listeleri">
-      <button role="tab" data-sekme="onemli" type="button">Önemli <span class="sayi"></span></button>
-      <button role="tab" data-sekme="ilgili" type="button">İlgili <span class="sayi"></span></button>
-      <button role="tab" data-sekme="tumu" type="button">Tümü <span class="sayi"></span></button>
-      <button role="tab" data-sekme="kayitli" type="button"><span class="uzun">Kaydedilenler</span><span class="kisa">Kayıtlı</span> <span class="sayi"></span></button>
-    </nav>
+  <div class="kap sayfa">
+    <main class="ana">
+      <section class="manset" id="manset" aria-label="Öne çıkanlar" hidden></section>
 
-    <div class="arac-cubugu">
-      <label class="arama">
-        <span class="gizli">Haberlerde ara</span>
-        <input id="arama" type="search" placeholder="Haberlerde ara…" autocomplete="off">
-      </label>
-      <select id="kaynakSec" aria-label="Kaynak"><option value="">Tüm kaynaklar</option></select>
-      <select id="siraSec" aria-label="Sıralama">
-        <option value="yeni">En yeni</option>
-        <option value="onem">En önemli</option>
-      </select>
-      <label class="anahtar">
-        <input id="okunanGizle" type="checkbox">
-        <span>Okunanları gizle</span>
-      </label>
-      <button class="metin-dugme" id="hepsiOkundu" type="button">Listeyi okundu say</button>
+      <div class="arac-cubugu">
+        <label class="arama">
+          <span class="gizli">Haberlerde ara</span>
+          <input id="arama" type="search" placeholder="Haberlerde ara…" autocomplete="off">
+        </label>
+        <select id="siraSec" aria-label="Sıralama">
+          <option value="yeni">En yeni</option>
+          <option value="onem">En önemli</option>
+        </select>
+        <label class="anahtar">
+          <input id="okunanGizle" type="checkbox" role="switch">
+          <span>Okunanları gizle</span>
+        </label>
+        <button class="metin-dugme" id="hepsiOkundu" type="button">Listeyi okundu say</button>
+      </div>
+
+      <button class="yeni-bildirim" id="yeniBildirim" type="button" hidden></button>
+
+      <section id="liste" class="liste" aria-live="polite">
+        <p class="bos">Haberler yükleniyor…</p>
+      </section>
+      <button class="daha-fazla" id="dahaFazla" type="button" hidden>Daha fazla göster</button>
+    </main>
+
+    <aside class="kenar" aria-label="Süzgeçler">
+      <section class="kenar-kutu">
+        <h2 class="kenar-baslik">Kategoriler</h2>
+        <div class="suzgec-listesi" id="kategoriCipleri"></div>
+      </section>
+      <section class="kenar-kutu">
+        <h2 class="kenar-baslik">Kaynaklar</h2>
+        <div class="suzgec-listesi" id="kaynakCipleri"></div>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="alt">
+    <div class="kap">
+      <span class="alt-logo">News<span>ESF</span></span>
+      <p>NewsESF haber yayınlamaz; başlıkları ve kısa özetleri kaynaklarından toplar, haberin tamamı için sizi kaynağa yönlendirir. Fotoğrafların hakları kaynaklarına aittir.</p>
     </div>
-
-    <div class="cipler" id="kategoriCipleri" aria-label="Kategoriye göre süz"></div>
-
-    <button class="yeni-bildirim" id="yeniBildirim" type="button" hidden></button>
-
-    <section id="liste" class="liste" aria-live="polite">
-      <p class="bos">Haberler yükleniyor…</p>
-    </section>
-    <button class="daha-fazla" id="dahaFazla" type="button" hidden>Daha fazla göster</button>
-  </main>
-
-  <footer class="alt kap">
-    <p>NewsESF haber yayınlamaz; başlıkları ve kısa özetleri kaynaklarından toplar, haberin tamamı için sizi kaynağa yönlendirir.</p>
   </footer>
 
   <dialog class="ayarlar" id="ayarlar" aria-labelledby="ayarBaslik">
