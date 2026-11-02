@@ -309,6 +309,15 @@ img.favicon { width: 18px; height: 18px; border-radius: 5px; background: var(--y
   border-radius: 999px; background: var(--yuzey); color: var(--ikincil); font-size: 12.5px; font-weight: 600; cursor: pointer;
 }
 .kaynak-sayisi:hover { color: var(--metin); border-color: var(--soluk); }
+.dil-dugme {
+  display: inline-flex; padding: 2px; border: 1px solid var(--cizgi); border-radius: 999px; background: var(--yuzey);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.06em; cursor: pointer;
+}
+.dil-dugme span { padding: 2px 8px; border-radius: 999px; color: var(--soluk); }
+.dil-dugme[aria-pressed="false"] span:first-child,
+.dil-dugme[aria-pressed="true"] span:last-child { background: var(--metin); color: var(--yuzey); }
+.dil-dugme:hover { border-color: var(--soluk); }
+.dil-dugme.yukleniyor { opacity: 0.55; cursor: progress; }
 .favicon-yigin { display: inline-flex; }
 .favicon-yigin img.favicon { width: 18px; height: 18px; border: 2px solid var(--yuzey); border-radius: 50%; }
 .favicon-yigin img.favicon + img.favicon { margin-left: -7px; }

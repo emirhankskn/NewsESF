@@ -7,9 +7,13 @@
 //     tam eşleşir: "AB" -> "AB'nin" yakalanır ama "ABD" yakalanmaz.
 //   - Başlıkta geçen kelime 3, özette geçen 1 puan; kategori puanı en fazla 6 x ağırlık.
 //   - Haberi birden çok kaynak verdiyse her ek kaynak için +3 (en fazla +9).
+//   - İngilizce kaynaklar da olduğu için kelimelerin İngilizce karşılıkları da listededir.
+//
+// "surum" artırılırsa, filtrelerini daha önce kaydetmiş kullanıcılara yeni kategoriler ve
+// mevcut kategorilere eklenen yeni kelimeler açılışta otomatik eklenir (uygulama.js: filtreGuncelle).
 
 const VARSAYILAN_FILTRELER = {
-  surum: 1,
+  surum: 2,
   esik: 15,
   kapaliKaynaklar: [],
   kategoriler: [
@@ -27,7 +31,8 @@ const VARSAYILAN_FILTRELER = {
         "YENİ Parti", "siyasi parti", "genel başkan", "kurultay", "yeni anayasa", "grup toplantısı",
         "dokunulmazlık", "fezleke", "gensoru", "soru önergesi", "siyaset", "siyasi",
         "Erdoğan", "\"Bahçeli\"", "Özgür Özel", "İmamoğlu", "Kılıçdaroğlu", "Mansur Yavaş",
-        "Dervişoğlu", "Babacan", "Davutoğlu", "Erbakan"
+        "Dervişoğlu", "Babacan", "Davutoğlu", "Erbakan",
+        "election", "midterm", "parliament"
       ]
     },
     {
@@ -82,7 +87,45 @@ const VARSAYILAN_FILTRELER = {
         "Birleşmiş Milletler", "Avrupa Birliği", "AB", "Güvenlik Konseyi", "Avrupa Konseyi",
         "Avrupa Parlamentosu", "AGİT", "G20", "Şanghay İşbirliği", "Türk Devletleri Teşkilatı",
         "yaptırım", "ateşkes", "barış görüşme", "müzakere", "zirve", "başbakan", "hükümet",
-        "Beyaz Saray", "Kremlin", "Brüksel", "işgal"
+        "Beyaz Saray", "Kremlin", "Brüksel", "işgal", "jeopolitik",
+        "ABD", "Amerika", "İran", "İsrail", "Rusya", "Ukrayna", "\"Çin\"", "Çinli", "Suriye", "Lübnan",
+        "Irak", "Yemen", "Filistin", "Sudan", "Tayvan", "Kuzey Kore", "Yunanistan", "Kıbrıs", "Azerbaycan",
+        "Ermenistan", "Washington", "Moskova", "Tahran", "Pekin", "Kiev", "Kyiv", "Tel Aviv",
+        "Trump", "Putin", "Zelensk", "Netanyahu", "Hamaney", "Pezeşkiyan", "Şi Cinping", "Macron",
+        "\"Merz\"", "Starmer", "von der Leyen", "Rutte", "Lavrov",
+        "foreign minister", "foreign policy", "foreign secretary", "secretary of state", "diplomat",
+        "diplomacy", "ambassador", "embassy", "United Nations", "Security Council", "European Union",
+        "EU", "G7", "sanction", "summit", "peace talks", "peace deal", "peace plan", "negotiat",
+        "prime minister", "White House", "Brussels", "geopolitic",
+        "\"US\"", "U.S.", "Russia", "Ukrain", "Israel", "China", "Chinese", "Syria", "Lebanon", "Iraq",
+        "Taiwan", "North Korea", "Palestin", "Moscow", "Beijing", "Tehran", "Xi Jinping", "Khamenei",
+        "Pezeshkian", "Turkey", "Turkish"
+      ]
+    },
+    {
+      id: "savas-guvenlik",
+      ad: "Savaş ve Güvenlik",
+      renk: "#b91c1c",
+      agirlik: 3,
+      aktif: true,
+      kelimeler: [
+        "savaş", "çatışma", "cephe", "ateşkes", "saldır", "bomba", "füze", "balistik", "İHA", "SİHA",
+        "dron", "nükleer", "uranyum", "zenginleştir", "silahlanma", "silahsızlan", "silah sevkiyat",
+        "silah yardım", "silah satış", "kitle imha", "mühimmat", "cephane", "savunma bakan",
+        "savunma harcama", "savunma bütçe", "savunma sanayi", "savunma sistem", "hava savunma",
+        "Avrupa savunma", "savunma işbirliği", "savunma iş birliği", "ordusu", "orduları", "asker",
+        "tatbikat", "seferberlik", "Genelkurmay", "Pentagon", "NATO", "istila", "rehine", "esir takası",
+        "uçak gemisi", "denizaltı", "donanma", "deniz kuvvet", "hava kuvvet", "kara kuvvet",
+        "caydırıcı", "mayın", "Patriot", "F-35", "F-16", "Eurofighter",
+        "\"Hamas\"", "Hizbullah", "Husi", "Devrim Muhafızları", "Gazze", "Batı Şeria", "Hürmüz",
+        "Kızıldeniz", "Donbas", "Kırım", "Zaporijya", "Harkiv",
+        "\"war\"", "\"wars\"", "warfare", "warplane", "warship", "militar", "army", "armies", "troops",
+        "soldier", "missile", "nuclear", "uranium", "enrichment", "strike", "bomb", "shelling",
+        "artillery", "ceasefire", "truce", "invasion", "invade", "frontline", "front line",
+        "ammunition", "munition", "weapon", "\"arms\"", "rearm", "defence", "defense", "hostage",
+        "conscription", "mobilization", "mobilisation", "deterren", "casualties", "navy", "\"naval\"",
+        "submarine", "aircraft carrier", "Hezbollah", "Houthi", "IRGC", "Revolutionary Guard", "\"Gaza\"",
+        "West Bank", "Hormuz", "Red Sea", "Crimea", "Zaporizhzhia", "Kharkiv"
       ]
     },
     {
@@ -117,6 +160,6 @@ const VARSAYILAN_FILTRELER = {
     "Beşiktaş", "Trabzonspor", "basketbol", "voleybol", "NBA", "Şampiyonlar Ligi", "UEFA",
     "Avrupa Ligi", "Konferans Ligi", "derbi", "Ballon d'Or", "burç", "astroloji", "Survivor",
     "MasterChef", "yemek tarifi", "dizi oyuncusu", "şarkıcı", "sevgilisi", "kombin", "hava durumu",
-    "Formula 1", "tenis"
+    "Formula 1", "tenis", "Premier League", "Champions League", "NFL"
   ]
 };

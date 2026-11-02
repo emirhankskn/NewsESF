@@ -14,6 +14,7 @@ import math
 import os
 import re
 import sys
+import time
 import unicodedata
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -37,7 +38,10 @@ OZET_UZUNLUK = 280
 SAYFA_BASINA_LINK = 40
 DETAY_SINIRI = 60  # Kaynak başına, bir çalışmada açılacak en fazla haber sayfası
 GORSEL_SINIRI = 50  # Kaynak başına, bir çalışmada kapak fotoğrafı aranacak en fazla haber
-EN_FAZLA_HABER = 8000
+EN_FAZLA_HABER = 12000
+# Aynı anda okunan kaynak sayısı. Her kaynak kendi içinde 6 bağlantı daha açabildiği için
+# hepsini birden başlatmak bazı sitelerin bağlantıyı kesmesine yol açıyor.
+ESZAMANLI_KAYNAK = 10
 
 TARAYICI = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 OKUYUCU = "NewsESF/1.0 (RSS okuyucu)"
@@ -67,6 +71,7 @@ def getir(url, rss=False):
         except requests.RequestException:
             if son_deneme:
                 raise
+            time.sleep(3)  # Kopan bağlantılar (SSL EOF vb.) çoğunlukla birkaç saniye sonra düzeliyor
             continue
         if yanit.ok or son_deneme:
             yanit.raise_for_status()
@@ -153,7 +158,10 @@ def rss_oku(url):
 
 def rss_gorseli(e):
     """RSS öğesindeki fotoğrafı bulur (media:content, media:thumbnail, enclosure ya da özetteki <img>)."""
-    adaylar = [m.get("url") for m in e.get("media_content", [])
+    # The Guardian gibi kaynaklar aynı fotoğrafı birkaç boyutta veriyor; en büyüğü seçilsin.
+    medyalar = sorted(e.get("media_content", []),
+                      key=lambda m: -int(m["width"]) if str(m.get("width", "")).isdigit() else 0)
+    adaylar = [m.get("url") for m in medyalar
                if m.get("medium", "image") == "image" and "video" not in m.get("type", "")]
     adaylar += [m.get("url") for m in e.get("media_thumbnail", [])]
     adaylar += [b.get("href") for b in e.get("enclosures", []) + e.get("links", [])
@@ -166,7 +174,7 @@ def rss_gorseli(e):
 
 # Bazı kaynaklar RSS'te çok küçük ya da çok büyük fotoğraf veriyor; adresteki boyutu kart için uygun hale getir.
 GORSEL_BOYUTLARI = [
-    (re.compile(r"(ichef\.bbci\.co\.uk/ace/ws/)\d+/"), r"\g<1>480/"),
+    (re.compile(r"(ichef\.bbci\.co\.uk/ace/(?:ws|standard)/)\d+/"), r"\g<1>480/"),
     (re.compile(r"(im\.haberturk\.com/.+/jpg/)\d+x\d+$"), r"\g<1>640x360"),
     (re.compile(r"(img\.ekonomim\.com/rcman/)Cw\d+h\d+"), r"\g<1>Cw480h270"),
 ]
@@ -383,7 +391,12 @@ def kaynagi_topla(kaynak, onceki, simdi):
 DURAK_KELIMELER = set(sadelestir(
     "ve ile bir bu şu o da de ki mi mı mu mü için gibi ne nasıl neden niye daha en çok "
     "olarak olan oldu olduğu son dakika işte sonra önce kadar ya veya ama ancak her tüm "
-    "yeni ilk iki üç yıl gün açıkladı açıklama dedi var yok sözleri hakkında"
+    "yeni ilk iki üç yıl gün açıkladı açıklama dedi var yok sözleri hakkında "
+    # İngilizce kaynaklar için
+    "the a an and or but of in on at to for from by with as are was were be been has have "
+    "had will would could should may might it its this that these those after before over "
+    "into about amid against says said say new how why what who when where than not no more "
+    "his her their they he she we you i up out"
 ).split())
 
 
@@ -487,7 +500,7 @@ def main():
     haberler = {h["id"]: h for h in onceki.get("haberler", []) if h["kaynak"] in aktif_idler}
     log(f"Önceki veri: {len(haberler)} haber")
 
-    with ThreadPoolExecutor(len(kaynaklar)) as havuz:
+    with ThreadPoolExecutor(min(len(kaynaklar), ESZAMANLI_KAYNAK)) as havuz:
         sonuclar = list(havuz.map(lambda k: kaynagi_topla(k, haberler, simdi), kaynaklar))
 
     durum, yeni_sayisi = {}, 0
@@ -522,7 +535,9 @@ def main():
     cikti = {
         "surum": 1,
         "guncelleme": iso(simdi),
-        "kaynaklar": {k["id"]: {"ad": k["ad"], "site": k.get("site", "")} for k in kaynaklar},
+        # "dil" yalnızca Türkçe olmayan kaynaklarda yazılır; site bu kaynakların haberlerine çeviri düğmesi koyar.
+        "kaynaklar": {k["id"]: {"ad": k["ad"], "site": k.get("site", ""), **({"dil": k["dil"]} if k.get("dil", "tr") != "tr" else {})}
+                      for k in kaynaklar},
         "durum": durum,
         "haberler": kalanlar,
     }

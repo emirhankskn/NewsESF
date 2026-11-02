@@ -1,8 +1,8 @@
 # NewsESF
 
 Siyaset Bilimi ve Kamu Yönetimi öğrencileri için **filtrelenmiş haber takibi**. NewsESF haber yayınlamaz:
-Türk haber sitelerinden güncel haberleri toplar, aynı olayı anlatan haberleri tek kartta birleştirir, sizin
-belirlediğiniz filtrelere göre puanlar ve önemli olanları öne çıkarır.
+Türk ve uluslararası haber sitelerinden güncel haberleri toplar, aynı olayı anlatan haberleri tek kartta
+birleştirir, sizin belirlediğiniz filtrelere göre puanlar ve önemli olanları öne çıkarır.
 
 - Sunucu ve veritabanı yok, ücret yok: tamamen **GitHub Pages + GitHub Actions** üzerinde çalışır.
 - Haberler **her 30 dakikada** bir otomatik güncellenir.
@@ -30,11 +30,21 @@ yeni haberler eklenir ve son 7 gün saklanır. Böylece repo büyümez.
 
 | Kaynak | Yöntem |
 |---|---|
-| Anadolu Ajansı, BBC Türkçe, DW Türkçe, Euronews Türkçe, NTV, Bianet, Habertürk, Cumhuriyet | RSS |
+| Anadolu Ajansı (analizler dahil), BBC Türkçe, DW Türkçe, Euronews Türkçe, NTV, Bianet, Habertürk, Cumhuriyet | RSS |
 | Ekonomim | RSS + Gündem, Ekonomi ve Yazarlar sayfalarının kazınması (köşe yazıları dahil) |
 | T24 | RSS'i olmadığı için Politika, Gündem, ana sayfa ve Son Yazılar sayfalarının kazınması |
+| **Dünya:** TRT Haber, Hürriyet, CNN Türk (dünya bölümleri), Independent Türkçe, Harici | RSS |
+| **Savunma:** DefenceTurk, SavunmaSanayiST | RSS |
+| **İngilizce:** BBC World, The New York Times, The Guardian, Al Jazeera, Al-Monitor, Kyiv Independent | RSS |
+| **İngilizce savunma ve analiz:** Politico Europe (Savunma), Defense News, Breaking Defense, Foreign Policy, War on the Rocks | RSS |
 
 Her kaynağın son okuma durumu sitede **Ayarlar → Kaynaklar** bölümünde görünür (✓ sorunsuz, ⚠ kısmen, ✗ okunamadı).
+
+İngilizce haberler başlıklarıyla listelenir. Kartın altındaki **EN | TR** düğmesine basınca başlık ve özet Türkçeye
+çevrilir, tekrar basınca İngilizce aslına döner. Çeviri Google Çeviri'nin anahtar istemeyen (resmî olmayan) adresiyle
+tarayıcıda yapılır, ücret ya da kayıt gerekmez. Google bu adresi bir gün kapatırsa düğme “Çeviri şu an yapılamadı”
+der; haberler İngilizce okunmaya devam eder. İngilizce haberler, aynı olayın Türkçe haberleriyle aynı kartta
+birleşmez ve manşete çıkmaz.
 
 ## Kurulum (bir kerelik, ~5 dakika)
 
@@ -81,6 +91,15 @@ Sağ üstteki **Ayarlar** düğmesinden:
 
 **Puanlama:** Başlıkta geçen her kelime 3, özette geçen 1 puan getirir. Bir kategorinin puanı en fazla
 6 × ağırlıktır. Haberi birden çok kaynak verdiyse her ek kaynak için +3 (en fazla +9) eklenir.
+
+Varsayılan kategoriler: Siyaset ve Seçimler, Kamu Yönetimi, Anayasa ve Yargı, Yerel Yönetimler, Uluslararası
+İlişkiler, **Savaş ve Güvenlik**, Ekonomi Politikası, Toplum ve Sosyal Politika. İngilizce kaynaklar için
+kelimelerin İngilizce karşılıkları da listelerde yer alır (ör. `nükleer` ve `nuclear`).
+
+Varsayılan filtreler güncellendiğinde (`site/filtreler.js` içindeki `surum` artırılınca) filtrelerini daha önce
+kaydetmiş kullanıcılara yeni kategoriler ve yeni kelimeler siteyi ilk açışlarında otomatik eklenir. Kendi
+eşikleri, ağırlıkları ve eklediği kategoriler değişmez. Push aboneliği olan cihazlarda ise yeni kodun
+`aboneler.txt`'ye eklenmesi gerekir (bkz. Bildirimler).
 
 **Eşleşme kuralları:**
 
@@ -205,6 +224,7 @@ o sayfadaki eşleşen linkleri toplar, her haberin sayfasını açıp başlık, 
 | `sayfalar` | Kazınacak sayfalar. `link_deseni` haber linklerini seçen düzenli ifadedir; `en_fazla` (varsayılan 40) sayfa başına alınacak link sayısı |
 | `kose_deseni` | Linki bu desene uyan haberler “Köşe yazısı” olarak işaretlenir |
 | `haric_deseni` | Linki bu desene uyan haberler hiç alınmaz (galeri, video vb.) |
+| `dil` | Kaynağın dili, ör. `"en"` (varsayılan `"tr"`). Türkçe olmayan kaynakların haberlerinde çeviri düğmesi çıkar |
 | `aktif` | `false` yapılırsa kaynak geçici olarak kapanır |
 
 Kaydettikten sonra Actions sekmesinden iş akışını elle çalıştırıp çıktıda kaynağın kaç haber getirdiğine bakabilirsiniz.

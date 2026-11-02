@@ -111,6 +111,8 @@
     gorunum: Object.assign({ sekme: "onemli", kaynak: "", kategori: "", sira: "yeni", okunanGizle: true }, depo.oku("gorunum", {})),
     arama: "",
     gosterilen: SAYFA_BOYU,
+    ceviriler: new Map(), // olay id -> { baslik, ozet }: Türkçe olmayan haberlerin çevirisi
+    cevrili: new Set(),   // Şu an Türkçe gösterilen olaylar
   };
   depo.yaz("sonZiyaret", Date.now());
 
@@ -119,7 +121,28 @@
     D.filtre = kayitli && Array.isArray(kayitli.kategoriler) ? kayitli : kopya(VARSAYILAN_FILTRELER);
     D.filtre.kapaliKaynaklar = D.filtre.kapaliKaynaklar || [];
     D.filtre.haric = D.filtre.haric || [];
+    if (filtreGuncelle(D.filtre)) depo.yaz("filtreler", D.filtre);
     filtreDerle();
+  }
+
+  // Varsayılan filtreler yeni bir sürüme geçtiyse (filtreler.js'deki "surum"), kaydedilmiş filtrelere
+  // eksik varsayılan kategorileri ve varsayılan kategorilere sonradan eklenen kelimeleri ekler.
+  // Kullanıcının kendi kategorilerine, ağırlıklarına ve eşiğine dokunmaz.
+  function filtreGuncelle(filtre) {
+    if ((filtre.surum || 1) >= VARSAYILAN_FILTRELER.surum) return false;
+    const ekle = (liste, yeniler) => {
+      const mevcut = new Set(liste.map(sadelestir));
+      liste.push(...yeniler.filter((kel) => !mevcut.has(sadelestir(kel))));
+    };
+    for (const varsayilan of VARSAYILAN_FILTRELER.kategoriler) {
+      const kat = filtre.kategoriler.find((kat) => kat.id === varsayilan.id);
+      if (kat) ekle(kat.kelimeler, varsayilan.kelimeler);
+      else filtre.kategoriler.push(kopya(varsayilan));
+    }
+    filtre.haric = filtre.haric || [];
+    ekle(filtre.haric, VARSAYILAN_FILTRELER.haric);
+    filtre.surum = VARSAYILAN_FILTRELER.surum;
+    return true;
   }
 
   function filtreDerle() {
@@ -251,6 +274,7 @@
   // ---------------------------------------------------------------- çizim
 
   const kaynakAdi = (id) => (D.veri && D.veri.kaynaklar[id] ? D.veri.kaynaklar[id].ad : id);
+  const kaynakDili = (id) => (D.veri && D.veri.kaynaklar[id] && D.veri.kaynaklar[id].dil) || "tr";
 
   function favicon(id) {
     const kaynak = D.veri && D.veri.kaynaklar[id];
@@ -277,6 +301,10 @@
     const onemli = p.puan >= D.derli.esik;
     const kayitli = D.kayitli.has(olay.id);
     const link = k(guvenliLink(ana.link));
+    const dil = kaynakDili(ana.kaynak);
+    const ceviri = dil !== "tr" && D.cevrili.has(olay.id) ? D.ceviriler.get(olay.id) : null;
+    const baslik = ceviri ? ceviri.baslik : ana.baslik;
+    const ozet = ceviri ? ceviri.ozet : olay.ozet;
 
     const ust = [];
     if (onemli) ust.push(`<span class="rozet onem" title="Önem puanı ${p.puan} (eşik ${D.derli.esik})">${p.puan >= D.derli.esik * 2 ? "★★" : "★"} Önemli</span>`);
@@ -293,14 +321,17 @@
     const kaynakDugmesi = digerSayi > 0
       ? `<button class="kaynak-sayisi" type="button" data-eylem="kaynaklar" aria-expanded="false"><span class="favicon-yigin">${[...olay.kaynaklar].slice(0, 3).map(favicon).join("")}</span>${olay.kaynaklar.size > 1 ? `${olay.kaynaklar.size} kaynakta` : `${olay.haberler.length} haber`}</button>`
       : "";
+    const ceviriDugmesi = dil !== "tr"
+      ? `<button class="dil-dugme" type="button" data-eylem="cevir" aria-pressed="${!!ceviri}" title="${ceviri ? "Orijinal metni göster" : "Türkçeye çevir"}"><span>${k(dil.toUpperCase())}</span><span>TR</span></button>`
+      : "";
 
     const yazar = ana.yazar && olay.kose ? `<span class="ayrac"></span><span>${k(ana.yazar)}</span>` : "";
     return `
       <article class="kart${okundu ? " okundu" : ""}${olay.gorsel ? "" : " gorselsiz"}" data-id="${k(olay.id)}">
-        <div class="kart-metin">
+        <div class="kart-metin"${dil !== "tr" ? ` lang="${k(ceviri ? "tr" : dil)}"` : ""}>
           <div class="ust-baslik">${ust.join("")}</div>
-          <h2 class="kart-baslik"><a href="${link}" target="_blank" rel="noopener noreferrer" data-oku>${k(ana.baslik)}</a></h2>
-          ${olay.ozet ? `<p class="kart-ozet">${k(olay.ozet)}</p>` : ""}
+          <h2 class="kart-baslik"><a href="${link}" target="_blank" rel="noopener noreferrer" data-oku>${k(baslik)}</a></h2>
+          ${ozet ? `<p class="kart-ozet">${k(ozet)}</p>` : ""}
         </div>
         ${olay.gorsel ? `<a class="kart-gorsel" href="${link}" target="_blank" rel="noopener noreferrer" data-oku tabindex="-1" aria-hidden="true">${gorselHtml(olay.gorsel)}</a>` : ""}
         <div class="kart-alt">
@@ -308,6 +339,7 @@
           <span class="ayrac"></span>
           <time datetime="${k(ana.tarih)}" title="${k(tamBicim.format(olay.tarih))}">${k(goreliZaman(olay.tarih))}</time>
           ${kaynakDugmesi}
+          ${ceviriDugmesi}
           <span class="kart-eylem">
             <button class="ikon-dugme" type="button" data-eylem="kaydet" aria-pressed="${kayitli}" title="${kayitli ? "Kayıtlardan çıkar" : "Sonra okumak için kaydet"}">${kayitli ? IKON.yerImiDolu : IKON.yerImi}</button>
             <button class="ikon-dugme" type="button" data-eylem="okundu" aria-pressed="${okundu}" title="${okundu ? "Okunmadı yap" : "Okundu işaretle"}">${okundu ? IKON.geri : IKON.tik}</button>
@@ -335,9 +367,10 @@
   }
 
   // Listenin en yeni haberleri arasından fotoğraflı en önemli üçü manşete çıkar.
+  // Türkçe olmayan haberler manşete çıkmaz; listede kalıp çeviri düğmesiyle okunurlar.
   function mansetSec(liste) {
     if (D.gorunum.sekme === "kayitli" || D.arama) return [];
-    const adaylar = liste.slice(0, 40).filter((o) => o.gorsel && !okunduMu(o) && o.p.puan > 0)
+    const adaylar = liste.slice(0, 40).filter((o) => o.gorsel && !okunduMu(o) && o.p.puan > 0 && kaynakDili(o.ana.kaynak) === "tr")
       .sort((a, b) => b.p.puan - a.p.puan || b.tarih - a.tarih)
       .slice(0, 3);
     return adaylar.length === 3 ? adaylar : [];
@@ -543,6 +576,41 @@
     setTimeout(() => { kart.remove(); if (!$("#liste .kart")) listeyiCiz(); else sayilariCiz(); }, 250);
   }
 
+  // Türkçe olmayan kaynakların haberleri karttaki düğmeyle Türkçeye çevrilir. Google Çeviri'nin
+  // anahtar istemeyen adresi kullanılır; çeviri tarayıcıda yapılır ve sayfa açık kaldıkça saklanır.
+  async function cevir(metinler) {
+    const adres = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=tr&dt=t&q=" + encodeURIComponent(metinler.join("\n"));
+    const yanit = await fetch(adres);
+    if (!yanit.ok) throw new Error(`HTTP ${yanit.status}`);
+    const veri = await yanit.json();
+    // Çeviri cümle cümle gelir; satır sonları korunduğu için başlık ve özet yeniden ayrılabilir.
+    return veri[0].map((parca) => parca[0]).join("").split("\n").map((satir) => satir.trim());
+  }
+
+  async function ceviriDegistir(olay, dugme) {
+    if (D.cevrili.has(olay.id)) {
+      D.cevrili.delete(olay.id);
+    } else {
+      if (!D.ceviriler.has(olay.id)) {
+        dugme.disabled = true;
+        dugme.classList.add("yukleniyor");
+        try {
+          const [baslik, ...ozet] = await cevir(olay.ozet ? [olay.ana.baslik, olay.ozet] : [olay.ana.baslik]);
+          D.ceviriler.set(olay.id, { baslik: baslik || olay.ana.baslik, ozet: ozet.join(" ").trim() || olay.ozet });
+        } catch (hata) {
+          dugme.disabled = false;
+          dugme.classList.remove("yukleniyor");
+          tost("Çeviri şu an yapılamadı, biraz sonra tekrar deneyin");
+          return;
+        }
+      }
+      D.cevrili.add(olay.id);
+    }
+    // Çeviri beklenirken liste yeniden çizilmiş olabilir; kartı güncel listede bul.
+    const kart = $(`#liste .kart[data-id="${CSS.escape(olay.id)}"]`);
+    if (kart) kartiYenile(kart, olay);
+  }
+
   function mansetTiklama(olayNesnesi) {
     const kart = olayNesnesi.target.closest(".manset-kart");
     if (!kart || (olayNesnesi.type === "auxclick" && olayNesnesi.button !== 1)) return;
@@ -574,6 +642,8 @@
       const liste = $(".diger-kaynaklar", kart);
       liste.hidden = !liste.hidden;
       eylem.setAttribute("aria-expanded", String(!liste.hidden));
+    } else if (eylem.dataset.eylem === "cevir") {
+      ceviriDegistir(olay, eylem);
     } else if (eylem.dataset.eylem === "okundu") {
       const yeniDeger = !okunduMu(olay);
       okunduYap(olay, yeniDeger);
@@ -744,6 +814,7 @@
       const icerik = JSON.parse(await dosya.text());
       const filtre = icerik.filtreler || icerik;
       if (!Array.isArray(filtre.kategoriler)) throw new Error("geçersiz dosya");
+      filtreGuncelle(filtre);
       D.filtre = filtre;
       if (Array.isArray(icerik.kayitli)) { D.kayitli = new Map([...D.kayitli, ...icerik.kayitli]); kayitliKaydet(); }
       if (Array.isArray(icerik.okunan)) { for (const id of icerik.okunan) D.okunan.add(id); okunanKaydet(); }

@@ -10,7 +10,8 @@
         "https://www.aa.com.tr/tr/rss/default?cat=guncel",
         "https://www.aa.com.tr/tr/rss/default?cat=politika",
         "https://www.aa.com.tr/tr/rss/default?cat=ekonomi",
-        "https://www.aa.com.tr/tr/rss/default?cat=dunya"
+        "https://www.aa.com.tr/tr/rss/default?cat=dunya",
+        "https://www.aa.com.tr/tr/rss/default?cat=analiz"
       ]
     },
     {
@@ -84,6 +85,127 @@
         { "url": "https://www.ekonomim.com/ekonomi", "link_deseni": "^https://www\\.ekonomim\\.com/.+-haberi-\\d+$" },
         { "url": "https://www.ekonomim.com/yazarlar", "link_deseni": "^https://www\\.ekonomim\\.com/kose-yazisi/[^/]+/\\d+$" }
       ]
+    },
+    {
+      "id": "trthaber",
+      "ad": "TRT Haber",
+      "site": "https://www.trthaber.com",
+      "rss": ["https://www.trthaber.com/dunya_articles.rss"]
+    },
+    {
+      "id": "hurriyet",
+      "ad": "Hürriyet",
+      "site": "https://www.hurriyet.com.tr",
+      "rss": ["https://www.hurriyet.com.tr/rss/dunya"]
+    },
+    {
+      "id": "cnnturk",
+      "ad": "CNN Türk",
+      "site": "https://www.cnnturk.com",
+      "rss": ["https://www.cnnturk.com/feed/rss/dunya/news"]
+    },
+    {
+      "id": "indyturk",
+      "ad": "Independent Türkçe",
+      "site": "https://www.indyturk.com",
+      "rss": ["https://www.indyturk.com/rss.xml"]
+    },
+    {
+      "id": "harici",
+      "ad": "Harici",
+      "site": "https://www.harici.com.tr",
+      "rss": ["https://www.harici.com.tr/feed/"]
+    },
+    {
+      "id": "defenceturk",
+      "ad": "DefenceTurk",
+      "site": "https://www.defenceturk.net",
+      "rss": ["https://www.defenceturk.net/feed"]
+    },
+    {
+      "id": "savunmasanayist",
+      "ad": "SavunmaSanayiST",
+      "site": "https://www.savunmasanayist.com",
+      "rss": ["https://www.savunmasanayist.com/feed/"]
+    },
+    {
+      "id": "bbc-world",
+      "ad": "BBC World",
+      "site": "https://www.bbc.com/news/world",
+      "dil": "en",
+      "rss": ["https://feeds.bbci.co.uk/news/world/rss.xml"]
+    },
+    {
+      "id": "nyt",
+      "ad": "The New York Times",
+      "site": "https://www.nytimes.com",
+      "dil": "en",
+      "rss": ["https://rss.nytimes.com/services/xml/rss/nyt/World.xml"]
+    },
+    {
+      "id": "guardian",
+      "ad": "The Guardian",
+      "site": "https://www.theguardian.com",
+      "dil": "en",
+      "rss": ["https://www.theguardian.com/world/rss"]
+    },
+    {
+      "id": "aljazeera",
+      "ad": "Al Jazeera",
+      "site": "https://www.aljazeera.com",
+      "dil": "en",
+      "rss": ["https://www.aljazeera.com/xml/rss/all.xml"]
+    },
+    {
+      "id": "politico-eu",
+      "ad": "Politico Europe",
+      "site": "https://www.politico.eu",
+      "dil": "en",
+      "rss": ["https://www.politico.eu/section/defense/feed/"]
+    },
+    {
+      "id": "defensenews",
+      "ad": "Defense News",
+      "site": "https://www.defensenews.com",
+      "dil": "en",
+      "rss": ["https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml"]
+    },
+    {
+      "id": "breakingdefense",
+      "ad": "Breaking Defense",
+      "site": "https://breakingdefense.com",
+      "dil": "en",
+      "rss": ["https://breakingdefense.com/feed/"]
+    },
+    {
+      "id": "kyivindependent",
+      "ad": "Kyiv Independent",
+      "site": "https://kyivindependent.com",
+      "dil": "en",
+      "rss": ["https://kyivindependent.com/news-archive/rss/"]
+    },
+    {
+      "id": "almonitor",
+      "ad": "Al-Monitor",
+      "site": "https://www.al-monitor.com",
+      "dil": "en",
+      "rss": ["https://www.al-monitor.com/rss"]
+    },
+    {
+      "id": "foreignpolicy",
+      "ad": "Foreign Policy",
+      "site": "https://foreignpolicy.com",
+      "dil": "en",
+      "kose_deseni": "^https://foreignpolicy\\.com/",
+      "rss": ["https://foreignpolicy.com/feed/"]
+    },
+    {
+      "id": "warontherocks",
+      "ad": "War on the Rocks",
+      "site": "https://warontherocks.com",
+      "dil": "en",
+      "kose_deseni": "^https://warontherocks\\.com/",
+      "rss": ["https://warontherocks.com/feed/"]
     }
   ]
 }
