@@ -295,13 +295,15 @@ mesaj hem de bu tetikleyici sessizce durur; süresiz ya da uzun bir süre seçin
 4. **Advanced** bölümünü açın:
    - **Request method:** `POST`
    - **Request body:** `{"ref":"main"}`
-   - **Request headers:** aşağıdaki üç satırı yapıştırın (anahtarı kendi token'ınızla değiştirin):
+   - **Request headers:** cron-job.org burada her başlık için ayrı birer **Key** ve **Value** kutusu gösterir.
+     `Content-Type` zaten eklenmişse diğer ikisini ekleyin; her satırı aşağıdaki gibi bölün
+     (`:` işaretinin solundaki Key, sağındaki Value olur; Authorization'ın değeri `Bearer ` ile başlar):
 
-     ```
-     Accept: application/vnd.github+json
-     Authorization: Bearer github_pat_BURAYA_ANAHTARINIZ
-     Content-Type: application/json
-     ```
+     | Key | Value |
+     |---|---|
+     | `Accept` | `application/vnd.github+json` |
+     | `Authorization` | `Bearer github_pat_BURAYA_ANAHTARINIZ` |
+     | `Content-Type` | `application/json` |
 
    - (İsteğe bağlı) **Send failure notifications** seçeneğini açıp e-postanıza hata bildirimi aldırın.
 5. **Create** (ya da **Save**) deyin.
