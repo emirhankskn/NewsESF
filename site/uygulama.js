@@ -837,7 +837,9 @@
   //     aboneler.txt dosyasına eklenir. Abonelik varken 1. yol devre dışı kalır (çift bildirim olmasın).
 
   const BILDIRIM_TEK_TEK_SINIRI = 3;
-  const BILDIRIM_EN_ESKI = 6 * 3600 * 1000;
+  // GitHub'ın zamanlanmış işi gecikebildiği için taze haberler "eski" sayılıp düşmesin
+  // diye sınır bir güne çıkarıldı (toplayici/bildir.py içindeki EN_ESKI ile aynı).
+  const BILDIRIM_EN_ESKI = 24 * 3600 * 1000;
 
   const bildirimDestegi = () => "Notification" in window && "serviceWorker" in navigator;
   const pushDestegi = () => bildirimDestegi() && "PushManager" in window;

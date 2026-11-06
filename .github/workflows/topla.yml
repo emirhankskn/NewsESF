@@ -2,9 +2,10 @@ name: Haberleri topla ve yayınla
 
 on:
   schedule:
-    # Her 30 dakikada bir (GitHub bazen birkaç dakika geciktirebilir).
+    # Yedek tetikleyici. GitHub'ın zamanlayıcısı saatlerce gecikebildiği için asıl tetikleme
+    # cron-job.org gibi dış bir zamanlayıcıdan workflow_dispatch ile yapılır (README'ye bakın).
     - cron: "7,37 * * * *"
-  workflow_dispatch:
+  workflow_dispatch:   # cron-job.org bu yoldan tetikler
   push:
     branches: [main]
 

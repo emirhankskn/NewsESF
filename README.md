@@ -145,8 +145,7 @@ Her cihaz için:
 3. **Kodu kopyala** ya da **Paylaş** (ör. WhatsApp ile repo sahibine gönderin).
 4. GitHub'da `aboneler.txt` dosyasının sonuna **yeni bir satır** olarak yapıştırıp kaydedin. Kod `NEWSESF1.` ile
    başlayan uzun, tek parça bir metindir; yalnızca `https://...` ile başlayan bir adres geldiyse kod eksik kopyalanmıştır.
-   En geç 30 dakika
-   içinde bildirimler başlar.
+   Bir sonraki toplama çalışmasında bildirimler başlar (GitHub zamanlayıcısı gecikebilir, bkz. “GitHub zamanlayıcısı gecikiyorsa”).
 
 Bildirim ayarlarını ya da filtreleri sonradan değiştirirseniz site “Yeni kodu aboneler.txt'ye eklemeniz
 gerekiyor” uyarısı gösterir; yeni kodu yine yeni satır olarak ekleyin, aynı cihazın eski satırının yerine geçer.
@@ -259,6 +258,65 @@ site/filtreler.js                 Varsayılan filtreler (Siyaset Bilimi ve Kamu 
 
 ## Sınırlamalar
 
-- Güncelleme anlık değildir. GitHub zamanlanmış işleri birkaç dakika geciktirebilir.
+- Güncelleme anlık değildir. GitHub zamanlanmış işleri (cron) planlanan dakikada başlatmayabilir;
+  yoğun dönemlerde çalışmalar saatlerce gecikebilir ya da bazı aralıklar atlanabilir. Bu nedenle
+  haberlerin yenilenmesi ve site kapalıyken gelen push bildirimleri de gecikebilir; birden çok
+  haber tek seferde (toplu) ulaşabilir. Dakikası dakikasına güvenilir bildirim için iş akışını dışarıdan
+  bir zamanlayıcıyla tetikleyin (aşağıya bakın).
 - Bir site tasarımını değiştirirse o sitenin kazıma ayarı (`link_deseni`) güncellenmelidir. RSS kaynakları bundan etkilenmez.
 - Haber listesi herkese açıktır (zaten herkese açık haberlerdir). Kişisel ayarlar yalnızca sizin tarayıcınızda durur.
+
+## GitHub zamanlayıcısı gecikiyorsa (cron-job.org ile dakik güncelleme)
+
+GitHub'ın yerleşik `schedule` tetikleyicisi "en iyi çaba" ile çalışır ve ücretsiz hesaplarda sık sık
+gecikir (saatte bir planlanan işin 3–8 saatte bir çalışması olağandır). Haberlerin gerçekten düzenli
+aralıklarla (ör. 10–15 dakikada bir) yenilenmesini ve bildirimlerin gecikmeden gitmesini istiyorsanız,
+iş akışını [cron-job.org](https://cron-job.org) (ücretsiz, açık kaynaklı) ile dışarıdan tetikleyin.
+
+### 1. GitHub erişim anahtarı
+
+İş akışını tetikleyebilmek için **Actions: Read and write** izni olan bir fine-grained token gerekir.
+Özel mesaj bölümü için oluşturduğunuz `privateKey` anahtarının **aynısını kullanabilirsiniz** (zaten
+Actions: Read and write izni vardır). Anahtarın bir **son kullanma tarihi** varsa, o tarihte hem özel
+mesaj hem de bu tetikleyici sessizce durur; süresiz ya da uzun bir süre seçin.
+
+### 2. cron-job.org'da iş oluşturma
+
+1. [https://cron-job.org](https://cron-job.org) adresinde ücretsiz hesap açın (ya da giriş yapın).
+2. **Create cronjob** düğmesine basın.
+3. Alanları şöyle doldurun:
+
+   | Alan | Değer |
+   |---|---|
+   | **Title** | `NewsESF topla` (isteğe bağlı) |
+   | **Address (URL)** | `https://api.github.com/repos/emirhankskn/NewsESF/actions/workflows/topla.yml/dispatches` |
+   | **Execution schedule** | **Every 15 minutes** (ya da `Every 10 minutes`; cron-job.org dakikada 1 isteğe kadar izin verir) |
+
+4. **Advanced** bölümünü açın:
+   - **Request method:** `POST`
+   - **Request body:** `{"ref":"main"}`
+   - **Request headers:** aşağıdaki üç satırı yapıştırın (anahtarı kendi token'ınızla değiştirin):
+
+     ```
+     Accept: application/vnd.github+json
+     Authorization: Bearer github_pat_BURAYA_ANAHTARINIZ
+     Content-Type: application/json
+     ```
+
+   - (İsteğe bağlı) **Send failure notifications** seçeneğini açıp e-postanıza hata bildirimi aldırın.
+5. **Create** (ya da **Save**) deyin.
+
+### 3. Çalıştığını doğrulama
+
+- cron-job.org'da işin yanındaki **Test run** düğmesine basın; `200` yanıtı görürseniz bağlantı hazırdır.
+- GitHub'da **Actions** sekmesinden birkaç dakika içinde `topla.yml` çalışmasının `workflow_dispatch`
+  kaydıyla başladığını görmeniz gerekir.
+
+### Notlar
+
+- 15 dakika önerilir; 10 dakikaya da düşebilirsiniz. Haber sitelerini gereksiz yormamak ve üst üste binen
+  çalışmaları azaltmak için 10–15 dakika iyi bir dengedir.
+- İş akışındaki yerleşik `schedule` (30 dk) **yedek olarak** bırakılmıştır; cron-job.org bir gün çalışmazsa
+  haberler yine de güncellenmeye devam eder.
+- `concurrency` ayarı, dış tetikleyici ile gecikmiş bir `schedule` çalışması çakışırsa üst üste binmelerini
+  engeller; çift bildirim ya da veri kaybı olmaz.

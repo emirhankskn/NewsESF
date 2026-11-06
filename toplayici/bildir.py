@@ -30,8 +30,10 @@ _site = urlsplit(SITE_ADRESI)
 ILETISIM = f"https://{_site.netloc}" if _site.scheme == "https" else "https://github.com"
 
 TEK_TEK_SINIRI = 3              # Bundan fazla haber varsa tek bir özet bildirimi gönderilir
-ILK_CALISMA_SINIRI = 150        # Bu kadar çok "yeni" olay varsa ilk çalışmadır, bildirim gönderme
-EN_ESKI = timedelta(hours=6)    # Yeni keşfedilen ama eski tarihli haberler için bildirim gönderme
+# Yeni keşfedilen ama bu kadar eski tarihli haberler için bildirim gönderme. GitHub'ın
+# zamanlanmış işleri (cron) saatlerce gecikebildiği için sınır bir güne çıkarıldı; yoksa
+# geciken çalışmanın topladığı taze haberler "eski" sayılıp hiç bildirilmezdi.
+EN_ESKI = timedelta(hours=24)
 
 
 # ---------------------------------------------------------------- puanlama (uygulama.js ile aynı)
@@ -114,6 +116,18 @@ def yeni_gruplar(veri):
         if min(h.get("ilk", "") for h in haberler) == veri["guncelleme"] and iso_oku(haberler[0]["tarih"]) >= sinir:
             yeniler[grup] = haberler
     return yeniler
+
+
+def ilk_calisma_mi(veri):
+    """Gerçek ilk çalışmayı ayırt eder: daha önce toplanmış hiçbir haber yoksa doğrudur.
+
+    Zamanlanmış iş geciktiğinde tek bir çalışmada yüzlerce "yeni" olay toplanabilir;
+    bu durum ilk çalışmayla karıştırılmamalıdır. Önceki çalışmalardan kalan en az bir
+    haberin "ilk" alanı bu çalışmanın damgasından farklıysa bu normal bir çalışmadır.
+    """
+    guncelleme = veri.get("guncelleme", "")
+    haberler = veri.get("haberler", [])
+    return bool(haberler) and all(h.get("ilk", "") == guncelleme for h in haberler)
 
 
 def olay_yap(grup, haberler):
@@ -216,8 +230,8 @@ def main():
     with open(CIKTI_DOSYASI, encoding="utf-8") as dosya:
         veri = json.load(dosya)
     gruplar = yeni_gruplar(veri)
-    if len(gruplar) > ILK_CALISMA_SINIRI:
-        log(f"{len(gruplar)} yeni olay var; ilk çalışma sayılıp bildirim gönderilmiyor.")
+    if ilk_calisma_mi(veri):
+        log("İlk çalışma: önceki veri yok, bildirim gönderilmiyor.")
         return
     kaynak_adlari = {k: v["ad"] for k, v in veri["kaynaklar"].items()}
     log(f"{len(gruplar)} yeni olay, {len(aboneler)} abone.")
